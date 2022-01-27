@@ -3,3 +3,4 @@
 kernel.amd64.bin
 kernel.amd64.bin.dsm
 kernel.amd64.bin.elf64
+scripts/cmd/__pycache__/
