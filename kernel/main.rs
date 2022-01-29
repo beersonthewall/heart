@@ -8,15 +8,18 @@ mod macros;
 
 #[cfg(target_arch="x86_64")] #[path="arch/amd64/mod.rs"]
 pub mod arch;
-
 pub mod unwind;
 
 mod logging;
+mod memory;
+mod multiboot;
+
+use multiboot::MultibootInfo;
 
 // Kernel entrypoint (called by arch/<foo>/start.S)
 #[no_mangle]
-pub fn kmain()
+pub extern "C" fn kmain(multiboot_ptr: usize)
 {
-	log!("Hello world! 1={}", 1);
-	loop {}
+	log!("Hello world! :)");
+    crate::memory::init(multiboot_ptr);
 }
