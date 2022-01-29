@@ -1,4 +1,4 @@
-use crate::memory::{PAGE_SIZE, PhysicalAddress};
+use crate::memory::{PhysicalAddress, PAGE_SIZE};
 
 #[derive(Copy, Clone)]
 struct Frame(PhysicalAddress);

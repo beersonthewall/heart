@@ -1,7 +1,5 @@
 #[repr(C)]
-pub struct MultibootHeader {
-    
-}
+pub struct MultibootHeader {}
 
 #[repr(C)]
 pub struct MultibootInfo {
@@ -22,7 +20,7 @@ pub struct MultibootInfo {
     mods_addr: u32,
 
     // flags[4] or flags[5]
-    syms: [u8;12],
+    syms: [u8; 12],
 
     // flags[6]
     mmap_length: u32,
@@ -56,7 +54,7 @@ pub struct MultibootInfo {
     framebuffer_height: u32,
     framebuffer_bpp: u8,
     framebuffer_type: u8,
-    color_info: [u8;5],
+    color_info: [u8; 5],
 }
 
 impl MultibootInfo {

@@ -5,7 +5,7 @@ use core::mem::size_of;
 
 use crate::multiboot::MultibootInfo;
 use frame_alloc::FrameAllocator;
-use page_mapper::{PageMapper, flush_tlb};
+use page_mapper::{flush_tlb, PageMapper};
 
 const PAGE_SIZE: usize = 4096;
 
@@ -32,8 +32,16 @@ pub fn init(multiboot_addr: usize) {
 
     let mut page_mapper = PageMapper::new();
     log!("Mapping new kernel page table.");
-    page_mapper.map(kernel_virtual_range, kernel_physical_range, &mut frame_allocator);
-    page_mapper.map(multiboot_virtual_range, multiboot_physical_range, &mut frame_allocator);
+    page_mapper.map(
+        kernel_virtual_range,
+        kernel_physical_range,
+        &mut frame_allocator,
+    );
+    page_mapper.map(
+        multiboot_virtual_range,
+        multiboot_physical_range,
+        &mut frame_allocator,
+    );
     page_mapper.write_cr3();
 
     // TODO should map auto-flush or do we need to expose this as part of the API?

@@ -1,4 +1,4 @@
-// x86 port IO 
+// x86 port IO
 #[path = "../x86_common/io.rs"]
 mod x86_io;
 
