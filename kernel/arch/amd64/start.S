@@ -131,7 +131,9 @@ start64_high:
 	
 	/* Set up stack pointer */
 	mov $init_stack, %rsp
-	
+
+	mov %rbx, %rdi
+
 	/* call the rust code */
 	call kmain
 
