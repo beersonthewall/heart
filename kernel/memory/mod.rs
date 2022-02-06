@@ -5,7 +5,7 @@ use core::mem::size_of;
 
 use crate::multiboot::MultibootInfo;
 use frame_alloc::FrameAllocator;
-use page_mapper::{flush_tlb, PageMapper};
+use page_mapper::PageMapper;
 
 const PAGE_SIZE: usize = 4096;
 
@@ -30,25 +30,38 @@ pub fn init(multiboot_addr: usize) {
         kernel_physical_range.base + kernel_physical_range.size + 1,
     );
 
-    let mut page_mapper = PageMapper::new();
-    log!("Mapping new kernel page table.");
-    page_mapper.map(
-        kernel_virtual_range,
-        kernel_physical_range,
-        &mut frame_allocator,
-    );
-    page_mapper.map(
-        multiboot_virtual_range,
-        multiboot_physical_range,
-        &mut frame_allocator,
-    );
-    page_mapper.write_cr3();
+    let mut page_mapper = PageMapper::init_kernel_tables();
 
-    // TODO should map auto-flush or do we need to expose this as part of the API?
-    flush_tlb(multiboot_virtual_range);
-    flush_tlb(kernel_virtual_range);
+    let test_frame = Frame { frame_number: 20_000 };
+    page_mapper.identity_map(test_frame, &mut frame_allocator);
+}
 
-    // TODO who is going to hold on to the kernel's page_mapper & frame alloc?
+#[derive(Clone, Copy)]
+pub struct Page {
+    pub page_number: usize
+}
+
+impl Page {
+    pub fn virtual_address(&self) -> VirtualAddress {
+        self.page_number * PAGE_SIZE
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Frame {
+    pub frame_number: usize,
+}
+
+impl Frame {
+    pub fn from_physical_address(addr: &PhysicalAddress) -> Self {
+        Self {
+            frame_number: *addr / PAGE_SIZE,
+        }
+    }
+
+    pub fn physical_address(&self) -> PhysicalAddress {
+        self.frame_number * PAGE_SIZE
+    }
 }
 
 pub type PhysicalAddress = usize;
@@ -77,7 +90,3 @@ impl VirtualAddressRange {
         Self { base, size }
     }
 }
-
-/*let multiboot_info: &MultibootInfo;
-unsafe { multiboot_info = &*(multiboot_addr as *const MultibootInfo); }
-let frame_alloc = FrameAllocator::new(&multiboot_info, multiboot_addr);*/

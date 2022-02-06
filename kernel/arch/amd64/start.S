@@ -117,10 +117,6 @@ start64:
 .extern kmain
 .globl start64_high
 start64_high:
-	/* and clear low-memory mapping */
-	mov $0, %rax
-	mov %rax, init_pml4 - KERNEL_BASE + 0
-	
 	/* Set up segment registers */
 	mov $0x10, %ax
 	mov %ax, %ss
