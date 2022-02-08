@@ -1,5 +1,6 @@
 use core::arch::asm;
-use core::ptr::{NonNull, addr_of};
+use core::ptr::{addr_of, NonNull};
+use core::slice::from_raw_parts;
 
 use crate::memory::{
     frame_alloc::FrameAllocator, Frame, Page, PhysicalAddress, PhysicalAddressRange,
@@ -8,86 +9,151 @@ use crate::memory::{
 
 const TABLE_SIZE: usize = 512;
 
-struct Table {
-    data: [usize; TABLE_SIZE],
-    next: Option<NonNull<Table>>,
+// Recurisve page table constants.
+const P4_TABLE_BASE: usize = 0b1111111111111111_111111110_111111110_111111110_111111110_000000000000; //(0xFF_FF << 48) | (0x1FE << 38) | (0x1FE << 29) | (0x1FE << 20) | (0x1FE << 11);
+const P3_TABLE_BASE: usize = 0b1111111111111111_111111110_111111110_111111110_000000000_000000000000; //(0xFF_FF << 48) | (0x1FE << 38) | (0x1FE << 29) | (0x1FE << 20);
+const P2_TABLE_BASE: usize = 0b1111111111111111_111111110_111111110_000000000_000000000_000000000000; //(0xFF_FF << 48) | (0x1FE << 38) | (0x1FE << 29);
+const P1_TABLE_BASE: usize = 0b1111111111111111_111111110_000000000_000000000_000000000_000000000000; //(0xFF_FF << 48) | 0x1FE << 38;
+
+// Page table flags
+const PTE_PRESENT: usize = 0b1;
+const PTE_READ_WRITE: usize = 0b10;
+const PTE_PROT: usize = 0b100;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum PageTableKind {
+    // Page Map Level 4
+    PML4,
+
+    // Page Directory Pointer Table
+    PDPT,
+
+    // Page Directory
+    PD,
+
+    // Page Table
+    PT,
+}
+
+#[derive(Copy, Clone)]
+pub struct Table {
+    entries: *mut Entry,
+    kind: PageTableKind,
 }
 
 impl Table {
-    fn new() -> Self {
+    fn new(page: Page, kind: PageTableKind) -> Self {
+        Table::from_virtual_address(page.virtual_address(), kind)
+    }
+
+    fn from_virtual_address(address: VirtualAddress, kind: PageTableKind) -> Self {
+        let table_ptr = address as *mut Entry;
         Self {
-            data: [0; TABLE_SIZE],
-            next: None,
+            entries: table_ptr,
+            kind: kind,
+        }
+    }
+
+    fn next_table(&mut self, page: Page) -> Table {
+        assert!(self.kind != PageTableKind::PT);
+        let k = self.kind;
+        log!("next_table: starting at {k:?}");
+        let table: Table;
+        if self.kind == PageTableKind::PML4 {
+            table = Table::from_virtual_address(P3_TABLE_BASE | (page.pml4_offset() << 12), PageTableKind::PDPT);
+        } else if self.kind == PageTableKind::PDPT {
+            table = Table::from_virtual_address(P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12), PageTableKind::PD);
+        } else {
+            table = Table::from_virtual_address(P1_TABLE_BASE | (page.pml4_offset() << 30) | (page.pdpt_offset() << 21) | (page.pd_offset() << 12), PageTableKind::PT);
+        }
+        let k = table.kind;
+        log!("returning table: {k:?}");
+        return table;
+    }
+
+    fn contains(&self, page: Page) -> bool {
+        log!("contains");
+        let offset = match self.kind {
+            PageTableKind::PML4 => page.pml4_offset(),
+            PageTableKind::PDPT => page.pdpt_offset(),
+            PageTableKind::PD => page.pd_offset(),
+            PageTableKind::PT => page.pt_offset(),
+        };
+
+        let addr = self.entries;
+        log!("addr of table: {addr:X?}");
+        unsafe {
+            let value: Entry = *self.entries;
+            log!("yup 0x{value:X}");
+        }
+        unsafe {
+            return *(self.entries.offset(offset as isize)) == 0;
+        }
+    }
+
+    fn add_entry(&mut self, page: Page, table_address: PhysicalAddress) {
+        let offset = match self.kind {
+            PageTableKind::PML4 => page.pml4_offset(),
+            PageTableKind::PDPT => page.pdpt_offset(),
+            PageTableKind::PD => page.pd_offset(),
+            PageTableKind::PT => page.pt_offset(),
+        };
+        let k = self.kind;
+        log!("Add entry at offset {offset} in level {k:?}");
+        unsafe {
+            // Assert we are not destroying existing mappings.
+            assert!(*self.entries.offset(offset as isize) == 0);
+
+            *(self.entries.offset(offset as isize)) = table_address | PTE_READ_WRITE | PTE_PRESENT;
         }
     }
 }
 
 pub struct PageMapper {
-    pml4: PageMapLevel4,
+    root: Table,
 }
 
 impl PageMapper {
-    pub fn init_kernel_tables() -> Self {
-        let mut pml4_physical_address: usize = 0;
-        let page_map_l4: PageMapLevel4;
+    pub fn init_kernel_table() -> Self {
+        let kernel_pml4: VirtualAddress = P4_TABLE_BASE;
+/*        unsafe {
+            asm!("mov {}, cr3", out(reg) kernel_pml4);
+        }*/
 
-        log!("[init_kernel_tables] Loading kernel page table from cr3.");
-
-        unsafe {
-            asm!("mov {}, cr3", out(reg) pml4_physical_address);
+        // The initial kernel_pml4 is identity mapped so the cast from physical (value stored in cr3 is a physical address)
+        // to virtual is a-okay. However it may be problematic in the future. I should look into using the recursive entry
+        // to generate a virtual address for the root.
+        Self {
+            root: Table::from_virtual_address(kernel_pml4, PageTableKind::PML4),
         }
-        // read() copies the existing pml4, changes will only be applied once we write the
-        // address of this new pml4 to cr3.
-        unsafe {
-            page_map_l4 = core::ptr::read(pml4_physical_address as *mut PageMapLevel4);
-        }
-        let pml4 = page_map_l4;
-
-        Self { pml4 }
-    }
-
-    pub fn identity_map(&mut self, frame: Frame, alloc: &mut FrameAllocator) {
-        // TODO how to mark this as allocated in the virtual address space?
-        log!("id map start");
-        let page = Page { page_number: frame.frame_number };
-        self.map(page, frame, alloc);
-        write_cr3(addr_of!(self.pml4) as usize);
-        log!("id map");
     }
 
     pub fn map(&mut self, page: Page, frame: Frame, alloc: &mut FrameAllocator) {
-        let virtual_address = page.virtual_address();
-        let pml4_offset = (virtual_address >> 39) & 0x1FF;
-        let pdpt: &mut PageDirectoryPointerTable;
+        let mut current_table = self.root;
+        let mut level = Some(PageTableKind::PML4);
 
-        log!("[page mapper] before pdpt cast");
-        if self.pml4.is_present(pml4_offset) {
-            log!("[page mapper] before existing pdpt");
-            let pdpt_physical_address =
-                (self.pml4.entries[pml4_offset] >> 11) & 0x07_FF_FF_FF_FF_FF_FF;
-            unsafe {
-                pdpt = &mut *(pdpt_physical_address as *mut PageDirectoryPointerTable);
-            };
-            log!("[page mapper] after existing pdpt");
-        } else {
-            log!("[page mapper] before alloc new pdpt");
-            let frame = alloc
-                .allocate_frame()
-                .expect("[page_mapper.map()] failed to allocate new phsyical frame.");
-            self.identity_map(frame, alloc);
-            unsafe {
-                pdpt = &mut *(frame.physical_address() as *mut PageDirectoryPointerTable);
+        while level.is_some() {
+            log!("level {level:?}");
+            if !current_table.contains(page) {
+                log!("alloc");
+                let frame = alloc.allocate_frame().expect("[PageMapper.map()] failed to allocate new frame for page table.");
+                let physical_address = frame.physical_address();
+                current_table.add_entry(page, physical_address);
             }
-            log!("[page mapper] after alloc new pdpt");
+            log!("past contains");
+            current_table = current_table.next_table(page);
+
+            level = match level {
+                Some(PageTableKind::PML4) => Some(PageTableKind::PDPT),
+                Some(PageTableKind::PDPT) => Some(PageTableKind::PD),
+                Some(PageTableKind::PD) => Some(PageTableKind::PT),
+                Some(PageTableKind::PT) => None,
+                None => None,
+            }
         }
-        log!("[page mapper] after pdpt cast");
 
-        pdpt.map(virtual_address, frame, alloc, self);
-
-        log!("[page mapper] after recursive map");
-        // 0x3 = present + writable. Then put the 51 bit address at the correct spot. bits 12-51x
-        let new_entry = 0x3 | (((pdpt as *const PageDirectoryPointerTable) as usize & (0x07_FF_FF_FF_FF_FF_FF)) << 11);
-        pdpt.entries[pml4_offset] = new_entry;
+        // Add the final page table entry.
+        current_table.add_entry(page, 0x0);
     }
 }
 
@@ -98,121 +164,13 @@ pub fn write_cr3(value: usize) {
     }
 }
 
-#[repr(C)]
-struct PageMapLevel4 {
-    entries: [usize; 512],
+type Entry = usize;
+
+trait PageTableEntry {
+    fn exists(self) -> bool;
 }
-
-impl PageMapLevel4 {
-    fn is_present(&self, offset: usize) -> bool {
-        self.entries[offset] & 0x1 == 0x1
-    }
-}
-
-#[repr(C)]
-struct PageDirectoryPointerTable {
-    entries: [usize; 512],
-}
-
-impl PageDirectoryPointerTable {
-    fn is_present(&self, offset: usize) -> bool {
-        self.entries[offset] & 0x1 == 0x1
-    }
-
-    fn map(&mut self, page: VirtualAddress, frame: Frame, alloc: &mut FrameAllocator, mapper: &mut PageMapper) {
-        let pdpt_offset = (page >> 29) & 0x1FF;
-        let pd: &mut PageDirectory;
-
-        if self.is_present(pdpt_offset) {
-            log!("[pdpt] before exsting pd");
-            let pd_ptr = (self.entries[pdpt_offset] >> 11) & 0x07_FF_FF_FF_FF_FF_FF;
-            unsafe { pd = &mut *(pd_ptr as *mut PageDirectory); }
-            log!("[pdpt] after exsting pd");
-        } else {
-            log!("[pdpt] before new pd");
-            let frame = alloc.allocate_frame().expect("[pdpt.map()] failed to allocate new phsyical frame.");
-            unsafe { pd = &mut *(frame.physical_address() as *mut PageDirectory); }
-            log!("[pdpt] identity mapping new frame");
-            mapper.identity_map(frame, alloc);
-            log!("[pdpt] after new pd");
-        }
-
-        log!("[pdpt] before map call");
-        pd.map(page, frame, alloc, mapper);
-        log!("[pdpt] after map");
-        // 0x3 = present + writable. Then put the 51 bit address at the correct spot. bits 12-51x
-        let new_entry = 0x3 | (( (pd as *const PageDirectory) as usize & (0x07_FF_FF_FF_FF_FF_FF)) << 11);
-        self.entries[pdpt_offset] = new_entry;
-    }
-}
-
-#[repr(C)]
-struct PageDirectory {
-    entries: [usize; 512],
-}
-
-impl PageDirectory {
-
-    fn is_present(&self, offset: usize) -> bool {
-        self.entries[offset] & 0x1 == 0x1
-    }
-    
-    fn map(&mut self, page: VirtualAddress, frame: Frame, alloc: &mut FrameAllocator, mapper: &mut PageMapper) {
-        log!("[pd] before pt off");
-        let pt_offset = (page >> 20) & 0x1FF;
-        log!("[pd] after pt off");
-        let pt: &mut PageTable;
-
-        log!("[pd] before check");
-        if self.is_present(pt_offset) {
-            log!("[pd] before existing pt");
-            let mut c = 0;
-            for i in 0..20000 {
-                c += i + 1
-            }
-            log!("{c}");
-            let pt_ptr = (self.entries[pt_offset] >> 11) & 0x07_FF_FF_FF_FF_FF_FF;
-            unsafe { pt = &mut *(pt_ptr as *mut PageTable); }
-            log!("[pd] after existing pt");
-        } else {
-            log!("[pd] before new pt");
-            let mut c = 0;
-            for i in 0..20000 {
-                c += i + 1
-            }
-            log!("{c}");
-            let frame = alloc.allocate_frame().expect("[pd.map()] failed to allocate new phsyical frame.");
-            unsafe { pt = &mut *(frame.physical_address() as *mut PageTable); }
-            log!("[pd] id mapping new frame");
-            mapper.identity_map(frame, alloc);
-            log!("[pd] after new pt");
-        }
-
-        log!("?");
-        pt.map(page, frame);
-
-        // 0x3 = present + writable. Then put the 51 bit address at the correct spot. bits 12-51
-        let new_entry = 0x3 | (((pt as *const PageTable) as usize & (0x07_FF_FF_FF_FF_FF_FF)) << 11);
-        self.entries[pt_offset] = new_entry;
-    }
-}
-
-#[repr(C)]
-struct PageTable {
-    entries: [usize; 512],
-}
-
-impl PageTable {
-    fn is_present(&self, offset: usize) -> bool {
-        self.entries[offset] & 0x1 == 0x1
-    }
-
-    fn map(&mut self, page: VirtualAddress, frame: Frame) {
-        log!("[pt] new entry");
-        let pt_offset = (page >> 11) & 0x1FF;
-        // 0x3 = present + writable. Then put the 51 bit address at the correct spot. bits 12-51
-        let new_entry = 0x3 | ((frame.physical_address() & (0x07_FF_FF_FF_FF_FF_FF)) << 11);
-        self.entries[pt_offset] = new_entry;
-        log!("[pt] done");
+impl PageTableEntry for Entry {
+    fn exists(self) -> bool {
+        self != 0
     }
 }

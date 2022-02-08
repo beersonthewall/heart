@@ -30,10 +30,18 @@ pub fn init(multiboot_addr: usize) {
         kernel_physical_range.base + kernel_physical_range.size + 1,
     );
 
-    let mut page_mapper = PageMapper::init_kernel_tables();
+    let mut page_mapper = PageMapper::init_kernel_table();
 
-    let test_frame = Frame { frame_number: 20_000 };
-    page_mapper.identity_map(test_frame, &mut frame_allocator);
+    let test_frame = Frame { frame_number: 0x55_55_BB_00_BB_BB_BB_BB / PAGE_SIZE };
+    let test_page = Page { page_number: 0xAA_AA_AA_AA_AA_AA_AA_AA / PAGE_SIZE };
+    let addr: u64 = 0b1111111111111111_111111110_111111110_111111110_111111110_000000000000;
+    let addr = addr as *const u64;
+    unsafe {
+        let addr = addr.add(510);
+        let value = *addr;
+        log!("VALUE: 0x{value:X}");
+    }
+    page_mapper.map(test_page, test_frame, &mut frame_allocator);
 }
 
 #[derive(Clone, Copy)]
@@ -44,6 +52,26 @@ pub struct Page {
 impl Page {
     pub fn virtual_address(&self) -> VirtualAddress {
         self.page_number * PAGE_SIZE
+    }
+
+    pub fn pml4_offset(&self) -> usize {
+        (self.virtual_address() >> 39) & 0x1FF
+    }
+
+    pub fn pdpt_offset(&self) -> usize {
+        (self.virtual_address() >> 30) & 0x1FF
+    }
+
+    pub fn pd_offset(&self) -> usize {
+        (self.virtual_address() >> 21) & 0x1FF
+    }
+
+    pub fn pt_offset(&self) -> usize {
+        (self.virtual_address() >> 12) & 0x1FF
+    }
+
+    pub fn physical_page_offset(&self) -> usize {
+        (self.virtual_address() >> 0) & 0x1FF
     }
 }
 
