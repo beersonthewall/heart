@@ -48,6 +48,9 @@ impl Table {
 
     fn from_virtual_address(address: VirtualAddress, kind: PageTableKind) -> Self {
         let table_ptr = address as *mut Entry;
+
+        log!("pdpt: 0x{address:x}");
+        log!("base addr: 0x{P3_TABLE_BASE:x}");
         Self {
             entries: table_ptr,
             kind: kind,
@@ -57,8 +60,8 @@ impl Table {
     fn next_table(&mut self, page: Page) -> Table {
         assert!(self.kind != PageTableKind::PT);
         let k = self.kind;
-        log!("next_table: starting at {k:?}");
         let table: Table;
+
         if self.kind == PageTableKind::PML4 {
             table = Table::from_virtual_address(P3_TABLE_BASE | (page.pml4_offset() << 12), PageTableKind::PDPT);
         } else if self.kind == PageTableKind::PDPT {
@@ -66,13 +69,11 @@ impl Table {
         } else {
             table = Table::from_virtual_address(P1_TABLE_BASE | (page.pml4_offset() << 30) | (page.pdpt_offset() << 21) | (page.pd_offset() << 12), PageTableKind::PT);
         }
-        let k = table.kind;
-        log!("returning table: {k:?}");
+
         return table;
     }
 
     fn contains(&self, page: Page) -> bool {
-        log!("contains");
         let offset = match self.kind {
             PageTableKind::PML4 => page.pml4_offset(),
             PageTableKind::PDPT => page.pdpt_offset(),
@@ -80,14 +81,13 @@ impl Table {
             PageTableKind::PT => page.pt_offset(),
         };
 
-        let addr = self.entries;
-        log!("addr of table: {addr:X?}");
         unsafe {
-            let value: Entry = *self.entries;
-            log!("yup 0x{value:X}");
-        }
-        unsafe {
-            return *(self.entries.offset(offset as isize)) == 0;
+            log!("offset: {offset}");
+            // Breaks immediately after we alloc a new page. It's unclear why I cannot reference my new page using a recursive virtual address. :(
+            let entry_value = *(self.entries.offset(offset as isize));
+            log!("contains: entry_value {entry_value:x}");
+
+            return *(self.entries.offset(offset as isize)) != 0;
         }
     }
 
@@ -99,11 +99,9 @@ impl Table {
             PageTableKind::PT => page.pt_offset(),
         };
         let k = self.kind;
-        log!("Add entry at offset {offset} in level {k:?}");
         unsafe {
             // Assert we are not destroying existing mappings.
             assert!(*self.entries.offset(offset as isize) == 0);
-
             *(self.entries.offset(offset as isize)) = table_address | PTE_READ_WRITE | PTE_PRESENT;
         }
     }
@@ -115,6 +113,10 @@ pub struct PageMapper {
 
 impl PageMapper {
     pub fn init_kernel_table() -> Self {
+        let low_pdpt_ptr = P3_TABLE_BASE as *const usize;
+        unsafe {
+            let entry = *low_pdpt_ptr;
+        }
         let kernel_pml4: VirtualAddress = P4_TABLE_BASE;
 /*        unsafe {
             asm!("mov {}, cr3", out(reg) kernel_pml4);
@@ -133,14 +135,27 @@ impl PageMapper {
         let mut level = Some(PageTableKind::PML4);
 
         while level.is_some() {
-            log!("level {level:?}");
+            log!("level: {level:?}");
             if !current_table.contains(page) {
-                log!("alloc");
+                log!("alloc new table");
+
                 let frame = alloc.allocate_frame().expect("[PageMapper.map()] failed to allocate new frame for page table.");
                 let physical_address = frame.physical_address();
                 current_table.add_entry(page, physical_address);
+
+                // We need to clear that memory.
+                let new_table_virtual_address = match level.unwrap() {
+                    PageTableKind::PML4 => P4_TABLE_BASE,
+                    PageTableKind::PDPT => P3_TABLE_BASE | (page.pml4_offset() << 12),
+                    PageTableKind::PD => P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12),
+                    PageTableKind::PT => P1_TABLE_BASE | (page.pml4_offset() << 30) | (page.pdpt_offset() << 21) | (page.pd_offset() << 12),
+                };
+                unsafe {
+                    let mut s = core::slice::from_raw_parts_mut(new_table_virtual_address as *mut u8, PAGE_SIZE);
+                    s.fill(0);
+                }
             }
-            log!("past contains");
+            log!("next_table");
             current_table = current_table.next_table(page);
 
             level = match level {

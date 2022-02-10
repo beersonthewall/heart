@@ -33,7 +33,7 @@ pub fn init(multiboot_addr: usize) {
     let mut page_mapper = PageMapper::init_kernel_table();
 
     let test_frame = Frame { frame_number: 0x55_55_BB_00_BB_BB_BB_BB / PAGE_SIZE };
-    let test_page = Page { page_number: 0xAA_AA_AA_AA_AA_AA_AA_AA / PAGE_SIZE };
+    let test_page = Page { page_number: 0xAA_AA_AA_AA_AA_AA_A0_00 / PAGE_SIZE };
     let addr: u64 = 0b1111111111111111_111111110_111111110_111111110_111111110_000000000000;
     let addr = addr as *const u64;
     unsafe {
