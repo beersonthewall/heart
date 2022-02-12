@@ -49,8 +49,6 @@ impl Table {
     fn from_virtual_address(address: VirtualAddress, kind: PageTableKind) -> Self {
         let table_ptr = address as *mut Entry;
 
-        log!("pdpt: 0x{address:x}");
-        log!("base addr: 0x{P3_TABLE_BASE:x}");
         Self {
             entries: table_ptr,
             kind: kind,
@@ -82,11 +80,6 @@ impl Table {
         };
 
         unsafe {
-            log!("offset: {offset}");
-            // Breaks immediately after we alloc a new page. It's unclear why I cannot reference my new page using a recursive virtual address. :(
-            let entry_value = *(self.entries.offset(offset as isize));
-            log!("contains: entry_value {entry_value:x}");
-
             return *(self.entries.offset(offset as isize)) != 0;
         }
     }
@@ -103,6 +96,9 @@ impl Table {
             // Assert we are not destroying existing mappings.
             assert!(*self.entries.offset(offset as isize) == 0);
             *(self.entries.offset(offset as isize)) = table_address | PTE_READ_WRITE | PTE_PRESENT;
+            let new_value = *(self.entries.offset(offset as isize));
+            let k = self.kind;
+            log!("add value: 0x{new_value:x} at offset 0x{offset:x} in level: {k:?}");
         }
     }
 }
@@ -118,10 +114,6 @@ impl PageMapper {
             let entry = *low_pdpt_ptr;
         }
         let kernel_pml4: VirtualAddress = P4_TABLE_BASE;
-/*        unsafe {
-            asm!("mov {}, cr3", out(reg) kernel_pml4);
-        }*/
-
         // The initial kernel_pml4 is identity mapped so the cast from physical (value stored in cr3 is a physical address)
         // to virtual is a-okay. However it may be problematic in the future. I should look into using the recursive entry
         // to generate a virtual address for the root.
@@ -135,20 +127,20 @@ impl PageMapper {
         let mut level = Some(PageTableKind::PML4);
 
         while level.is_some() {
-            log!("level: {level:?}");
-            if !current_table.contains(page) {
-                log!("alloc new table");
+            log!("mapping: {level:?}");
 
+            if !current_table.contains(page) {
                 let frame = alloc.allocate_frame().expect("[PageMapper.map()] failed to allocate new frame for page table.");
                 let physical_address = frame.physical_address();
+                log!("Allocating physical address: 0x{physical_address:x}");
                 current_table.add_entry(page, physical_address);
 
                 // We need to clear that memory.
                 let new_table_virtual_address = match level.unwrap() {
-                    PageTableKind::PML4 => P4_TABLE_BASE,
-                    PageTableKind::PDPT => P3_TABLE_BASE | (page.pml4_offset() << 12),
-                    PageTableKind::PD => P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12),
-                    PageTableKind::PT => P1_TABLE_BASE | (page.pml4_offset() << 30) | (page.pdpt_offset() << 21) | (page.pd_offset() << 12),
+                    PageTableKind::PML4 => P3_TABLE_BASE,
+                    PageTableKind::PDPT => P2_TABLE_BASE | (page.pml4_offset() << 12),
+                    PageTableKind::PD => P1_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12),
+                    PageTableKind::PT => panic!("Tried to alloc new frame with nowhere to go!"),
                 };
                 unsafe {
                     let mut s = core::slice::from_raw_parts_mut(new_table_virtual_address as *mut u8, PAGE_SIZE);
@@ -169,6 +161,7 @@ impl PageMapper {
 
         // Add the final page table entry.
         current_table.add_entry(page, 0x0);
+        log!("Finished mapping entry!");
     }
 }
 
