@@ -30,5 +30,4 @@ impl FrameAllocator {
         self.free = Frame { frame_number: f.frame_number + 1 };
         Some(f)
     }
-
 }

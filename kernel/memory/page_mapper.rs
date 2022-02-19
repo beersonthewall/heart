@@ -103,7 +103,7 @@ impl Table {
             let a = self.entries;
             log!("self.entries: {a:?}");
             log!("entry addr  : {ptr:?}");
-            let entry = (table_address.0 << 12) | PTE_READ_WRITE | PTE_PRESENT;
+            let entry = (table_address.0) | PTE_READ_WRITE | PTE_PRESENT;
             *ptr = PageTableEntry(entry as u64);
             let k = self.kind;
             log!("add entry: 0x{entry:x} at offset 0x{offset:x} in level: {k:?}");
@@ -195,6 +195,7 @@ impl PageMapper {
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 struct PageTableEntry(u64);
 
 impl PageTableEntry {
