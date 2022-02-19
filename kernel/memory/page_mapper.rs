@@ -11,10 +11,10 @@ use super::addr::{PhysicalAddress, VirtualAddress};
 const TABLE_SIZE: usize = 512;
 
 // Recurisve page table constants.
-const P4_TABLE_BASE: VirtualAddress = VirtualAddress(0xFFFF_FFFF_FFFF_F000);
-const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xFFFF_FFFF_FFE0_0000);
-const P2_TABLE_BASE: VirtualAddress = VirtualAddress(0xFFFF_FFFF_C000_0000);
-const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xFFFF_FF80_0000_0000);
+const P4_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfdf_e000);
+const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfc0_0000);
+const P2_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_8000_0000);
+const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff00_0000_0000);
 
 // Page table flags
 const PTE_PRESENT: usize = 0b1;
