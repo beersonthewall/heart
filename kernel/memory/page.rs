@@ -32,9 +32,4 @@ impl Page {
     pub fn pt_offset(&self) -> usize {
         (self.virtual_address().0 >> 12) & 0x1FF
     }
-
-    #[inline]
-    pub fn physical_page_offset(&self) -> usize {
-        (self.virtual_address().0 >> 0) & 0x1FF
-    }
 }

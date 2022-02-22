@@ -1,4 +1,4 @@
-use crate::memory::{PhysicalAddress, PAGE_SIZE, Frame};
+use crate::memory::{PhysicalAddress, Frame};
 
 pub struct FrameAllocator {
     multiboot_start: Frame,

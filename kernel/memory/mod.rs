@@ -26,9 +26,9 @@ pub fn init(multiboot_addr: usize) {
     // referenced by the multiboot info struct. We can't read it yet so we don't know
     // where they are located in physical memory.
 
-    let kernel_virtual_range = VirtualAddressRange::new(VirtualAddress::new(0xFFFFFFFF80000000), 4_000_000);
+    let _kernel_virtual_range = VirtualAddressRange::new(VirtualAddress::new(0xFFFFFFFF80000000), 4_000_000);
     let kernel_physical_range = PhysicalAddressRange::new(PhysicalAddress::new(0xFFFFFFFF80000000), 4_000_000);
-    let multiboot_virtual_range =
+    let _multiboot_virtual_range =
         VirtualAddressRange::new(VirtualAddress::new(multiboot_addr), size_of::<MultibootInfo>());
     let multiboot_physical_range =
         PhysicalAddressRange::new(PhysicalAddress::new(multiboot_addr), size_of::<MultibootInfo>());

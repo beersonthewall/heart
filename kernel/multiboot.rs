@@ -1,7 +1,4 @@
 #[repr(C)]
-pub struct MultibootHeader {}
-
-#[repr(C)]
 pub struct MultibootInfo {
     pub flags: u32,
 
