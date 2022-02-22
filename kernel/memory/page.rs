@@ -7,7 +7,6 @@ pub struct Page {
 }
 
 impl Page {
-
     #[inline]
     pub fn virtual_address(&self) -> VirtualAddress {
         VirtualAddress::new(self.page_number * PAGE_SIZE)

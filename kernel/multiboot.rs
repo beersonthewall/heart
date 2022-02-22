@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[repr(C)]
 pub struct MultibootInfo {
     pub flags: u32,
@@ -54,6 +55,7 @@ pub struct MultibootInfo {
     pub color_info: [u8; 5],
 }
 
+#[allow(dead_code)]
 impl MultibootInfo {
     pub fn flags(&self) -> u32 {
         self.flags

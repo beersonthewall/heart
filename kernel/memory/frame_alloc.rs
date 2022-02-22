@@ -1,26 +1,14 @@
 use crate::memory::{PhysicalAddress, Frame};
 
 pub struct FrameAllocator {
-    multiboot_start: Frame,
-    multiboot_end: Frame,
-    kernel_start: Frame,
-    kernel_end: Frame,
     free: Frame,
 }
 
 impl FrameAllocator {
     pub fn new(
-        multiboot_start: PhysicalAddress,
-        multiboot_end: PhysicalAddress,
-        kernel_start: PhysicalAddress,
-        kernel_end: PhysicalAddress,
         start: PhysicalAddress,
     ) -> Self {
         Self {
-            multiboot_start: Frame::from_physical_address(&multiboot_start),
-            multiboot_end: Frame::from_physical_address(&multiboot_end),
-            kernel_start: Frame::from_physical_address(&kernel_start),
-            kernel_end: Frame::from_physical_address(&kernel_end),
             free: Frame::from_physical_address(&start),
         }
     }

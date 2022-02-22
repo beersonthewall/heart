@@ -9,4 +9,4 @@ class DebugCmd(Command):
         if result.returncode:
             return 
 
-        return subprocess.run("qemu-system-x86_64 -d int -s -S -kernel kernel.amd64.bin -serial stdio", shell=True)
+        return subprocess.run("qemu-system-x86_64 -d int -s -S -kernel kernel.amd64.bin -serial stdio -no-reboot", shell=True)

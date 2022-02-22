@@ -1,4 +1,4 @@
-use core::ops::Add;
+use core::ops::{Add, BitOr};
 
 #[derive(Copy, Clone)]
 pub struct PhysicalAddress(pub usize);
@@ -15,6 +15,14 @@ impl Add for PhysicalAddress {
 
     fn add(self, other: Self) -> Self::Output {
         Self(self.0 + other.0)
+    }
+}
+
+impl BitOr<u64> for PhysicalAddress {
+    type Output = u64;
+
+    fn bitor(self, rhs: u64) -> Self::Output {
+        self.0 as u64 | rhs
     }
 }
 
@@ -35,30 +43,10 @@ impl VirtualAddress {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct PhysicalAddressRange {
-    pub base: PhysicalAddress,
-    pub size: usize,
-}
+impl BitOr<usize> for VirtualAddress {
+    type Output = usize;
 
-impl PhysicalAddressRange {
-    pub fn new(base: PhysicalAddress, size: usize) -> Self {
-        Self { base, size }
-    }
-
-    pub fn end(&self) -> PhysicalAddress {
-        self.base + self.size
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct VirtualAddressRange {
-    pub base: VirtualAddress,
-    pub size: usize,
-}
-
-impl VirtualAddressRange {
-    pub fn new(base: VirtualAddress, size: usize) -> Self {
-        Self { base, size }
+    fn bitor(self, rhs: usize) -> Self::Output {
+        self.0 | rhs
     }
 }
