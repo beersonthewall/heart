@@ -22,6 +22,21 @@ impl<'a> PageMapper<'a> {
         }
     }
 
+    fn print_table(table: &mut Table) {
+        let mut nonzero = false;
+        for i in 0..512 {
+            let entry = &table[i];
+            let val = entry.entry();
+            if entry.is_used() {
+                nonzero = true;
+                log!("entry {i}: {val:x}");
+            }
+        }
+        if !nonzero {
+            log!("table empty");
+        }
+    }
+
     fn next_table(entry: &mut PageTableEntry, next: Page, alloc: &mut FrameAllocator) -> &'a mut Table {
         if !entry.is_used() {
             if let Some(frame) = alloc.allocate_frame() {
@@ -32,6 +47,7 @@ impl<'a> PageMapper<'a> {
         }
 
         let table = unsafe { &mut *(next.virtual_address().0 as *mut Table) };
+        PageMapper::print_table(table);
         return table;
     }
 
@@ -43,13 +59,18 @@ impl<'a> PageMapper<'a> {
         };
         let pdpt = PageMapper::next_table(entry, pdpt_page, alloc);
 
+        log!("pml4 state...");
+        PageMapper::print_table(self.root);
+        log!("pdpt state..");
+        PageMapper::print_table(pdpt);
+
         log!("writing pdpt entry");
         let entry = &mut pdpt[page.pdpt_offset()];
         let pd_page = Page {
             page_number: (P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12)) / PAGE_SIZE,
         };
         let pd = PageMapper::next_table(entry, pd_page, alloc);
-
+        
         log!("writing pd entry");
         let entry = &mut pd[page.pd_offset()];
         let pt_page = Page { page_number: (P1_TABLE_BASE | (page.pml4_offset() << 30) | (page.pdpt_offset() << 20) | (page.pt_offset() << 12)) / PAGE_SIZE };

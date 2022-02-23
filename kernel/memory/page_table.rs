@@ -19,6 +19,10 @@ impl PageTableEntry {
         log!("set_frame: {value:x}");
         self.0 |= frame.physical_address() | options;
     }
+
+    pub fn entry(&self) -> u64 {
+        self.0
+    }
 }
 
 const TABLE_SIZE: usize = 512;

@@ -17,7 +17,7 @@ const PAGE_SIZE: usize = 4096;
 pub fn init(_multiboot_addr: usize) {
 
     let mut frame_allocator = FrameAllocator::new(
-        PhysicalAddress::new(1 * 1000 * 1000 * 1000),
+        PhysicalAddress::new(1 * 1024 * 1024 * 1024),
     );
 
     let mut page_mapper = PageMapper::init_kernel_table();
