@@ -36,5 +36,12 @@ pub fn init(multiboot_addr: usize) {
             .unwrap()
             .flush();
     }
+    let data: &mut u64 = unsafe { &mut *(page.start_address().as_u64() as *mut u64)};
+    let value = *data;
+    log!("{value}");
+    *data = 100;
+    let value = *data;
+    log!("{value}");
+
     log!("Success!!!!");
 }
