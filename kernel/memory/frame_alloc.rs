@@ -1,34 +1,28 @@
-use crate::memory::{PhysicalAddress, PAGE_SIZE, Frame};
+use super::PAGE_SIZE;
+use x86_64::addr::PhysAddr;
+use x86_64::structures::paging::page::Size4KiB;
+use x86_64::structures::paging::frame::PhysFrame;
+use x86_64::structures::paging::FrameAllocator;
 
-pub struct FrameAllocator {
-    multiboot_start: Frame,
-    multiboot_end: Frame,
-    kernel_start: Frame,
-    kernel_end: Frame,
-    free: Frame,
+pub struct FA {
+    free: PhysFrame<Size4KiB>,
 }
 
-impl FrameAllocator {
+impl FA {
     pub fn new(
-        multiboot_start: PhysicalAddress,
-        multiboot_end: PhysicalAddress,
-        kernel_start: PhysicalAddress,
-        kernel_end: PhysicalAddress,
-        start: PhysicalAddress,
+        start: u64,
     ) -> Self {
         Self {
-            multiboot_start: Frame::from_physical_address(&multiboot_start),
-            multiboot_end: Frame::from_physical_address(&multiboot_end),
-            kernel_start: Frame::from_physical_address(&kernel_start),
-            kernel_end: Frame::from_physical_address(&kernel_end),
-            free: Frame::from_physical_address(&start),
+            free: PhysFrame::from_start_address(PhysAddr::new(start)).unwrap(),
         }
     }
 
-    pub fn allocate_frame(&mut self) -> Option<Frame> {
+}
+
+unsafe impl FrameAllocator<Size4KiB> for FA {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
         let f = self.free;
-        self.free = Frame { frame_number: f.frame_number + 1 };
+        self.free = self.free + PAGE_SIZE as u64;
         Some(f)
     }
-
 }

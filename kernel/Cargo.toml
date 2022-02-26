@@ -6,3 +6,6 @@ edition = "2021"
 [lib]
 path = "main.rs"
 crate-type = ["staticlib"]
+
+[dependencies]
+x86_64 = "0.14.8"

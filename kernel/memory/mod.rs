@@ -1,92 +1,40 @@
 mod frame_alloc;
-mod page_mapper;
 
-use core::mem::size_of;
+use frame_alloc::FA;
 
-use crate::multiboot::MultibootInfo;
-use frame_alloc::FrameAllocator;
-use page_mapper::PageMapper;
+use x86_64::addr::{PhysAddr, VirtAddr};
+use x86_64::structures::paging::frame::PhysFrame;
+use x86_64::structures::paging::mapper::Mapper;
+use x86_64::structures::paging::mapper::RecursivePageTable;
+use x86_64::structures::paging::page::Page;
+use x86_64::structures::paging::page::Size4KiB;
+use x86_64::structures::paging::page_table::{PageTable, PageTableFlags};
 
 const PAGE_SIZE: usize = 4096;
 
 pub fn init(multiboot_addr: usize) {
-    // Identity map kernel and multiboot information struct, but notably *not* the maps
-    // referenced by the multiboot info struct. We can't read it yet so we don't know
-    // where they are located in physical memory.
-
-    let kernel_virtual_range = VirtualAddressRange::new(0xFFFFFFFF80000000, 4_000_000);
-    let kernel_physical_range = PhysicalAddressRange::new(0xFFFFFFFF80000000, 4_000_000);
-    let multiboot_virtual_range =
-        VirtualAddressRange::new(multiboot_addr, size_of::<MultibootInfo>());
-    let multiboot_physical_range =
-        PhysicalAddressRange::new(multiboot_addr, size_of::<MultibootInfo>());
-
-    let mut frame_allocator = FrameAllocator::new(
-        multiboot_physical_range.base,
-        multiboot_physical_range.base + multiboot_physical_range.size,
-        kernel_physical_range.base,
-        kernel_physical_range.base + kernel_physical_range.size,
-        // Start immediately after the kernel
-        kernel_physical_range.base + kernel_physical_range.size + 1,
-    );
-
-    let mut page_mapper = PageMapper::init_kernel_tables();
-
-    let test_frame = Frame { frame_number: 20_000 };
-    page_mapper.identity_map(test_frame, &mut frame_allocator);
-}
-
-#[derive(Clone, Copy)]
-pub struct Page {
-    pub page_number: usize
-}
-
-impl Page {
-    pub fn virtual_address(&self) -> VirtualAddress {
-        self.page_number * PAGE_SIZE
+    let level4_table_addr: u64 = 0xffff_ff7f_bfdf_e000;
+    let level4: &mut PageTable = unsafe { &mut *(level4_table_addr as *mut PageTable) };
+    let mut recursive_table =
+        RecursivePageTable::new(level4).expect("failed to create recursive table");
+    let page = Page::<Size4KiB>::from_start_address(VirtAddr::new(1 * 1024 * 1024 * 1024)).unwrap();
+    let frame = PhysFrame::from_start_address(PhysAddr::new(8 * 1024 * 1024)).unwrap();
+    let mut frame_allocator = FA::new(4 * 1024 * 1024);
+    unsafe {
+        recursive_table
+            .map_to_with_table_flags(
+                page,
+                frame,
+                PageTableFlags::PRESENT
+                    | PageTableFlags::WRITABLE
+                    | PageTableFlags::USER_ACCESSIBLE
+                    | PageTableFlags::NO_EXECUTE
+                    | PageTableFlags::NO_CACHE,
+                PageTableFlags::USER_ACCESSIBLE,
+                &mut frame_allocator,
+            )
+            .unwrap()
+            .flush();
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct Frame {
-    pub frame_number: usize,
-}
-
-impl Frame {
-    pub fn from_physical_address(addr: &PhysicalAddress) -> Self {
-        Self {
-            frame_number: *addr / PAGE_SIZE,
-        }
-    }
-
-    pub fn physical_address(&self) -> PhysicalAddress {
-        self.frame_number * PAGE_SIZE
-    }
-}
-
-pub type PhysicalAddress = usize;
-pub type VirtualAddress = usize;
-
-#[derive(Copy, Clone)]
-pub struct PhysicalAddressRange {
-    pub base: PhysicalAddress,
-    pub size: usize,
-}
-
-impl PhysicalAddressRange {
-    fn new(base: PhysicalAddress, size: usize) -> Self {
-        Self { base, size }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct VirtualAddressRange {
-    pub base: VirtualAddress,
-    pub size: usize,
-}
-
-impl VirtualAddressRange {
-    fn new(base: VirtualAddress, size: usize) -> Self {
-        Self { base, size }
-    }
+    log!("Success!!!!");
 }

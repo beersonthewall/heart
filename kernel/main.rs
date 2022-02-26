@@ -2,6 +2,7 @@
 #![no_std]
 #![crate_name = "kernel"]
 
+extern crate x86_64;
 /// Macros, need to be loaded before everything else due to how rust parses
 #[macro_use]
 mod macros;
