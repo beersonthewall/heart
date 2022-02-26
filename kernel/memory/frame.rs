@@ -20,6 +20,6 @@ impl Frame {
 
 impl core::fmt::Display for Frame {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "0x{:x}", self.physical_address().0)
+        self.physical_address().fmt(f)
     }
 }

@@ -34,6 +34,12 @@ impl Add<usize> for PhysicalAddress {
     }
 }
 
+impl core::fmt::Display for PhysicalAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "0x{:x}", self.0)
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct VirtualAddress(pub usize);
 
