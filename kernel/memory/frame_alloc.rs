@@ -8,6 +8,7 @@ impl FrameAllocator {
     pub fn new(
         start: PhysicalAddress,
     ) -> Self {
+        log!("start: {start}");
         Self {
             free: Frame::from_physical_address(&start),
         }
