@@ -65,46 +65,27 @@ impl<'a> PageMapper<'a> {
         PageMapper::print_table(self.root);
 
         log!("writing pml4 entry");
-        let entry = &mut self.root[page.pml4_offset()];
-        log!("value: {entry:?}");
         let pdpt_page = Page {
             page_number: (P3_TABLE_BASE | (page.pml4_offset() << 12)) / PAGE_SIZE,
         };
-        let pdpt = PageMapper::next_table(entry, pdpt_page, alloc);
-        log!("value: {entry:?}");
+        let pdpt = PageMapper::next_table(&mut self.root[page.pml4_offset()], pdpt_page, alloc);
 
         log!("writing pdpt entry");
-
-
-        let entry = &pdpt[page.pdpt_offset()];
-        log!("pdpt entry before {entry:?}");
-        let value = &pdpt[page.pdpt_offset()].entry();
-        log!("pdpt value before {value:x}");
         let pd_page = Page {
             page_number: (P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12))
                 / PAGE_SIZE,
         };
-        let a = core::ptr::addr_of!(pdpt[page.pdpt_offset()]);
-        log!("pdpt entry addr in map: {a:?}");
         let pd = PageMapper::next_table(&mut pdpt[page.pdpt_offset()], pd_page, alloc);
-        let e = &mut pdpt[page.pdpt_offset()];
-        e.0 = 0x40001003;
-        let v = e.0;
-        log!("pdpt entry {v:x}");
-
-        PageMapper::print_table(self.root);
-        PageMapper::print_table(pdpt);
 
         log!("writing pd entry");
-        let entry = &mut pd[page.pd_offset()];
         let pt_page = Page {
             page_number: (P1_TABLE_BASE
                 | (page.pml4_offset() << 30)
-                | (page.pdpt_offset() << 20)
-                | (page.pt_offset() << 12))
+                | (page.pdpt_offset() << 21)
+                | (page.pd_offset() << 12))
                 / PAGE_SIZE,
         };
-        let pt = PageMapper::next_table(entry, pt_page, alloc);
+        let pt = PageMapper::next_table(&mut pd[page.pd_offset()], pt_page, alloc);
 
         log!("writing pt entry");
         let entry = &mut pt[page.pt_offset()];

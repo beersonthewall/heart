@@ -15,13 +15,7 @@ impl PageTableEntry {
     }
 
     pub fn set_frame(&mut self, frame: Frame, options: u64) {
-        let value = frame.physical_address() | options;
-        log!("set_frame: {value:x}");
-        let a = core::ptr::addr_of!(self.0);
-        log!("entry addr: {a:?}");
-        self.0 = value;//frame.physical_address() | options;
-        let v = self.0;
-        log!("self.0: {v:x}");
+        self.0 = frame.physical_address() | options;
     }
 
     pub fn entry(&self) -> u64 {
