@@ -22,7 +22,9 @@ use multiboot::MultibootInfo;
 pub extern "C" fn kmain(multiboot_ptr: usize) {
     log!("Hello world! :)");
     let mb: &MultibootInfo;
-    unsafe { mb = &*(multiboot_ptr as *const MultibootInfo);}
+    unsafe {
+        mb = &*(multiboot_ptr as *const MultibootInfo);
+    }
     log!("Multiboot flags {}", mb.flags);
     crate::memory::init(multiboot_ptr);
 }

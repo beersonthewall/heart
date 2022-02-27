@@ -1,6 +1,6 @@
-use core::ops::{Index, IndexMut};
-use super::frame::Frame;
 use super::addr::VirtualAddress;
+use super::frame::Frame;
+use core::ops::{Index, IndexMut};
 
 pub const PTE_PRESENT: u64 = 1;
 pub const PTE_WRITE: u64 = 1 << 1;
@@ -45,7 +45,6 @@ impl Index<usize> for Table {
 }
 
 impl IndexMut<usize> for Table {
-
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.entries[index]
     }

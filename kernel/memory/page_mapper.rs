@@ -61,7 +61,12 @@ impl<'a> PageMapper<'a> {
         return table;
     }
 
-    pub fn map(&mut self, page: Page, frame: Frame, alloc: &mut FrameAllocator) {
+    pub fn map(
+        &mut self,
+        page: Page,
+        frame: Frame,
+        alloc: &mut FrameAllocator,
+    ) -> Result<(), PagingError> {
         PageMapper::print_table(self.root);
 
         log!("writing pml4 entry");

@@ -3,7 +3,7 @@ use super::PAGE_SIZE;
 
 #[derive(Clone, Copy)]
 pub struct Page {
-    pub page_number: usize
+    pub page_number: usize,
 }
 
 impl Page {
