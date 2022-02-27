@@ -1,15 +1,9 @@
-# Heart
+# Wizard Insane
 
-## Getting Started
+## About
 
-### Prerequisites
+An x86_64 kernel in Rust. Built very slowly as I'm learning OS dev as I go.
 
-* qemu
+## What's With The Name?
 
-### Build & Run
-
-```
-./scripts/heart.py build
-./scripts/heart.py run
-```
-
+I hate naming projects so I put my name into [this](https://wutangnamefor.me/) and that's the result.
