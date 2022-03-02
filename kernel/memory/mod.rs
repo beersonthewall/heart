@@ -35,4 +35,8 @@ pub fn init(_multiboot_addr: usize) {
     log!("test_value before: {test_value}");
     *test_value = 100;
     log!("test_value after: {test_value}");
+
+    log!("unmapping page");
+    page_mapper.unmap(test_page, test_frame, &mut frame_allocator);
+    log!("page mapper test complete :)");
 }

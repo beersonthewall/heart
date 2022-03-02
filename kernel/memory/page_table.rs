@@ -1,4 +1,4 @@
-use super::addr::VirtualAddress;
+use super::addr::{PhysicalAddress, VirtualAddress};
 use super::frame::Frame;
 use core::ops::{Index, IndexMut};
 
@@ -20,6 +20,10 @@ impl PageTableEntry {
 
     pub fn entry(&self) -> u64 {
         self.0
+    }
+
+    pub fn frame(&self) -> Frame {
+        Frame::from_physical_address(PhysicalAddress::new(self.0 as usize))
     }
 }
 

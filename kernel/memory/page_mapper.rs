@@ -3,7 +3,7 @@ use super::frame::Frame;
 use super::frame_alloc::FrameAllocator;
 use super::page::Page;
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
-use super::PAGE_SIZE;
+use super::PagingError;
 
 // Recursive page table constants.
 // Note: the recursive entry is at index 510.
@@ -11,6 +11,7 @@ const P4_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfdf_e000);
 const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfc0_0000);
 const P2_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_8000_0000);
 const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff00_0000_0000);
+const RECURSIVE_INDEX: usize = 510;
 
 pub struct PageMapper<'a> {
     root: &'a mut Table,
@@ -45,10 +46,6 @@ impl<'a> PageMapper<'a> {
     ) -> &'a mut Table {
         if !entry.is_used() {
             if let Some(frame) = alloc.allocate_frame() {
-                let a = core::ptr::addr_of_mut!(*entry);
-                log!("Hello???");
-                log!("entry: {a:?}");
-                log!("frame: {frame}");
                 entry.set_frame(frame, PTE_WRITE | PTE_PRESENT);
             } else {
                 panic!("Failed to allocate frame for next_table.");
@@ -67,33 +64,88 @@ impl<'a> PageMapper<'a> {
         frame: Frame,
         alloc: &mut FrameAllocator,
     ) -> Result<(), PagingError> {
-        PageMapper::print_table(self.root);
-
         log!("writing pml4 entry");
-        let pdpt_page = Page {
-            page_number: (P3_TABLE_BASE | (page.pml4_offset() << 12)) / PAGE_SIZE,
-        };
+        let pdpt_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+        );
         let pdpt = PageMapper::next_table(&mut self.root[page.pml4_offset()], pdpt_page, alloc);
 
         log!("writing pdpt entry");
-        let pd_page = Page {
-            page_number: (P2_TABLE_BASE | (page.pml4_offset() << 21) | (page.pdpt_offset() << 12))
-                / PAGE_SIZE,
-        };
+        let pd_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+        );
         let pd = PageMapper::next_table(&mut pdpt[page.pdpt_offset()], pd_page, alloc);
 
         log!("writing pd entry");
-        let pt_page = Page {
-            page_number: (P1_TABLE_BASE
-                | (page.pml4_offset() << 30)
-                | (page.pdpt_offset() << 21)
-                | (page.pd_offset() << 12))
-                / PAGE_SIZE,
-        };
+        let pt_page = recursive_page(
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+            page.pd_offset(),
+        );
         let pt = PageMapper::next_table(&mut pd[page.pd_offset()], pt_page, alloc);
 
         log!("writing pt entry");
         let entry = &mut pt[page.pt_offset()];
         entry.set_frame(frame, PTE_WRITE | PTE_PRESENT);
+
+        Ok(())
     }
+
+    pub fn unmap(
+        &mut self,
+        page: Page,
+        frame: Frame,
+        alloc: &mut FrameAllocator,
+    ) -> Result<(), PagingError> {
+        let pml4_entry = &mut self.root[page.pml4_offset()];
+        assert!(pml4_entry.is_used());
+
+        let pdpt_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+        );
+        let pdpt_table = PageMapper::next_table(pml4_entry, pdpt_page, alloc);
+        let pdpt_entry = &mut pdpt_table[page.pdpt_offset()];
+        assert!(pdpt_entry.is_used());
+
+        let pd_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+        );
+        let pd_table = PageMapper::next_table(pdpt_entry, pd_page, alloc);
+        let pd_entry = &mut pd_table[page.pd_offset()];
+        assert!(pd_entry.is_used());
+
+        let pt_page = recursive_page(
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+            page.pd_offset(),
+        );
+        let pt_table = PageMapper::next_table(pd_entry, pt_page, alloc);
+        let pt_entry = &mut pt_table[page.pt_offset()];
+        assert!(pt_entry.is_used());
+        assert!(frame == pt_entry.frame());
+
+        Ok(())
+    }
+}
+
+#[inline]
+fn recursive_page(pml4_index: usize, pdpt_index: usize, pd_index: usize, pt_index: usize) -> Page {
+    let mut addr: usize =
+        (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
+    log!("new recursive page: {addr:x}");
+    Page::from_virtual_address(VirtualAddress(addr))
 }
