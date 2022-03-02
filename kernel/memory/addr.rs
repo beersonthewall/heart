@@ -44,8 +44,14 @@ impl core::fmt::Display for PhysicalAddress {
 pub struct VirtualAddress(pub usize);
 
 impl VirtualAddress {
+    #[inline]
     pub fn new(address: usize) -> Self {
-        Self(address)
+        // Cannonical virtual address form for x86_64 sign-extends bit 47.
+        let mut addr = address;
+        if addr & (1 << 47) > 0 {
+            addr = addr | (0xFFFF << 48);
+        }
+        Self(addr)
     }
 }
 
