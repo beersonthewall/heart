@@ -1,15 +1,15 @@
 use super::addr::PhysicalAddress;
 use super::PAGE_SIZE;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Frame {
     pub frame_number: usize,
 }
 
 impl Frame {
-    pub fn from_physical_address(addr: &PhysicalAddress) -> Self {
+    pub fn from_physical_address(addr: PhysicalAddress) -> Self {
         Self {
-            frame_number: (*addr).0 / PAGE_SIZE,
+            frame_number: addr.0 / PAGE_SIZE,
         }
     }
 
