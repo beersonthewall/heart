@@ -140,6 +140,46 @@ impl<'a> PageMapper<'a> {
 
         Ok(())
     }
+
+    pub fn is_mapped(&self, page: Page) -> bool {
+        if !self.root[page.pml4_offset()].is_used() {
+            return false;
+        }
+
+        let pdpt_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset()
+        );
+        let pdpt = unsafe { &mut *(pdpt_page.virtual_address().0 as *mut Table) };
+
+        if !pdpt[page.pdpt_offset()].is_used() {
+            return false;
+        }
+
+        let pd_page = recursive_page(
+            RECURSIVE_INDEX,
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+        );
+        let pd = unsafe { &mut *(pd_page.virtual_address().0 as *mut Table) };
+
+        if !pd[page.pd_offset()].is_used() {
+            return false;
+        }
+
+        let pt_page = recursive_page(
+            RECURSIVE_INDEX,
+            page.pml4_offset(),
+            page.pdpt_offset(),
+            page.pd_offset(),
+        );
+        let pt = unsafe { &mut *(pt_page.virtual_address().0 as *mut Table) };
+
+        return pt[page.pt_offset()].is_used();
+    }
 }
 
 #[inline]
