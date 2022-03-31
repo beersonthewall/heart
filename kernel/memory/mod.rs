@@ -18,7 +18,7 @@ enum PagingError {
     Unknown,
 }
 
-pub fn init(_multiboot_addr: usize) {
+pub fn init(multiboot_addr: usize, _kernel_end: usize) {
     let mut frame_allocator = FrameAllocator::new(PhysicalAddress::new(10_000 * PAGE_SIZE));
 
     let mut page_mapper = PageMapper::init_kernel_table();

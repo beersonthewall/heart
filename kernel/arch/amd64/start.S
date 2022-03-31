@@ -115,6 +115,7 @@ start64:
 
 .section .text
 .extern kmain
+.extern kernel_end    
 .globl start64_high
 start64_high:
 	/* Set up segment registers */

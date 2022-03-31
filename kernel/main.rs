@@ -15,16 +15,20 @@ mod logging;
 mod memory;
 mod multiboot;
 
+use core::ffi::c_void;
+
 use multiboot::MultibootInfo;
 
 // Kernel entrypoint (called by arch/<foo>/start.S)
 #[no_mangle]
 pub extern "C" fn kmain(multiboot_ptr: usize) {
-    log!("Hello world! :)");
-    let mb: &MultibootInfo;
-    unsafe {
-        mb = &*(multiboot_ptr as *const MultibootInfo);
+    extern "C" {
+        static kernel_end: u8;
     }
-    log!("Multiboot flags {}", mb.flags);
-    crate::memory::init(multiboot_ptr);
+
+    log!("Hello world! :)");
+    let kend: usize;
+    unsafe { kend = &kernel_end as *const _ as usize; }
+    unsafe { log!("kernel_end: 0x{:x}", kend); }
+    unsafe { crate::memory::init(multiboot_ptr, kend); }
 }
