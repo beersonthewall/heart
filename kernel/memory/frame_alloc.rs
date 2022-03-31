@@ -7,6 +7,7 @@ pub struct FrameAllocator {
 impl FrameAllocator {
     pub fn new(start: PhysicalAddress) -> Self {
         log!("start: {start}");
+        assert!(start.0 % 4096 == 0);
         Self {
             free: Frame::from_physical_address(start),
         }
