@@ -8,9 +8,9 @@ use super::PagingError;
 // Recursive page table constants.
 // Note: the recursive entry is at index 510.
 const P4_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfdf_e000);
-const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfc0_0000);
+/*const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfc0_0000);
 const P2_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_8000_0000);
-const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff00_0000_0000);
+const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff00_0000_0000);*/
 const RECURSIVE_INDEX: usize = 510;
 
 pub struct PageMapper<'a> {
@@ -24,6 +24,7 @@ impl<'a> PageMapper<'a> {
         }
     }
 
+    #[allow(dead_code)]
     fn print_table(table: &Table) {
         let mut nonzero = false;
         for i in 0..512 {
@@ -184,7 +185,7 @@ impl<'a> PageMapper<'a> {
 
 #[inline]
 fn recursive_page(pml4_index: usize, pdpt_index: usize, pd_index: usize, pt_index: usize) -> Page {
-    let mut addr: usize =
+    let addr: usize =
         (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
     log!("new recursive page: {addr:x}");
     Page::from_virtual_address(VirtualAddress(addr))
