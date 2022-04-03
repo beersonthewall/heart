@@ -1,63 +1,121 @@
-#[allow(dead_code)]
-#[repr(C)]
+use core::iter::Iterator;
+use core::mem::size_of;
+
 pub struct MultibootInfo {
-    pub flags: u32,
-
-    // flags[0]
-    pub mem_lower: u32,
-    pub mem_upper: u32,
-
-    // flags[1]
-    pub boot_device: u32,
-
-    // flags[2]
-    pub cmdline: u32,
-
-    // flags[3]
-    pub mods_count: u32,
-    pub mods_addr: u32,
-
-    // flags[4] or flags[5]
-    pub syms: [u8; 12],
-
-    // flags[6]
-    pub mmap_length: u32,
-    pub mmap_addr: u32,
-
-    // flags[7]
-    pub drives_length: u32,
-    pub drives_addr: u32,
-
-    // flags[8]
-    pub config_table: u32,
-
-    // flags[9]
-    pub boot_loader_name: u32,
-
-    // flags[10]
-    pub apm_table: u32,
-
-    // flags[11]
-    pub vbe_control_info: u32,
-    pub vbe_mode_info: u32,
-    pub vbe_mode: u16,
-    pub vbe_interface_seg: u16,
-    pub vbe_interface_off: u16,
-    pub vbe_interface_len: u16,
-
-    // flags[12]
-    pub framebuffer_addr: u64,
-    pub framebuffer_pitch: u32,
-    pub framebuffer_width: u32,
-    pub framebuffer_height: u32,
-    pub framebuffer_bpp: u8,
-    pub framebuffer_type: u8,
-    pub color_info: [u8; 5],
+    raw_data: *const u8,
 }
 
+/// Working from the manuals found at: https://www.gnu.org/software/grub/manual/multiboot/.
 #[allow(dead_code)]
 impl MultibootInfo {
+    pub fn new(multiboot_ptr: usize) -> Self {
+        MultibootInfo {
+            raw_data: multiboot_ptr as *const u8,
+        }
+    }
+
     pub fn flags(&self) -> u32 {
-        self.flags
+        unsafe { *(self.raw_data as *const u32) }
+    }
+
+    pub fn mem_lower(&self) -> u32 {
+        if !self.flag_is_set(0b1) {
+            return 0;
+        }
+
+        unsafe { *(self.raw_data.offset(4) as *const u32) }
+    }
+
+    pub fn mem_upper(&self) -> u32 {
+        if !self.flag_is_set(0b1) {
+            return 0;
+        }
+
+        unsafe { *(self.raw_data.offset(8) as *const u32) }
+    }
+
+    pub fn mmap_iter(&self) -> MMapIter {
+        MMapIter::new(self.mmap_addr() as *const u8, self.mmap_length())
+    }
+
+    pub fn mmap_length(&self) -> u32 {
+        if !self.flag_is_set(1 << 6) {
+            return 0;
+        }
+        unsafe { *(self.raw_data.offset(44) as *const u32) }
+    }
+
+    pub fn mmap_addr(&self) -> u32 {
+        if !self.flag_is_set(1 << 6) {
+            return 0;
+        }
+
+        unsafe { *(self.raw_data.offset(48) as *const u32) }
+    }
+
+    #[inline]
+    fn flag_is_set(&self, flag: u32) -> bool {
+        (self.flags() & flag) != 0
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(packed)]
+pub struct MMapEntry {
+    pub size: u32,
+    pub base_addr: u64,
+    pub length: u64,
+    pub entry_type: u32,
+}
+
+impl MMapEntry {
+    pub fn size(&self) -> u32 {
+        unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.size)) }
+    }
+
+    pub fn base_addr(&self) -> u64 {
+        unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.base_addr)) }
+    }
+
+    pub fn length(&self) -> u64 {
+        unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.length)) }
+    }
+
+    pub fn entry_type(&self) -> u32 {
+        unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.entry_type)) }
+    }
+}
+
+pub struct MMapIter {
+    start: *const u8,
+    length: u32,
+    current_offset: isize,
+}
+
+impl MMapIter {
+    fn new(start: *const u8, length: u32) -> Self {
+        Self {
+            start: start,
+            length: length,
+            current_offset: 0,
+        }
+    }
+}
+
+impl Iterator for MMapIter {
+    type Item = MMapEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_offset >= self.length as isize {
+            return None;
+        }
+
+        let entry;
+        unsafe {
+            entry = *(self.start.offset(self.current_offset) as *const MMapEntry);
+        }
+        self.current_offset =
+            self.current_offset + (entry.size() as isize) + (size_of::<u32>() as isize);
+        Some(entry)
     }
 }
