@@ -88,5 +88,6 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
         multiboot_addr,
     );
 
-    let _frame_alloc = FrameAllocator::new(bootstrap_frame_allocator, &multiboot_info, &mut page_mapper);
+    let _frame_alloc =
+        FrameAllocator::new(bootstrap_frame_allocator, &multiboot_info, &mut page_mapper);
 }

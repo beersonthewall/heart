@@ -77,7 +77,7 @@ impl<'a> FrameAllocator<'a> {
         // FIXME: detect & mark regions not in the memory map as reserved.
         // We won't necessarily have all existing memory in the map.
         for entry in info.mmap_iter() {
-            if let MMapEntryType::Available = entry.entry_type()  {
+            if let MMapEntryType::Available = entry.entry_type() {
                 continue;
             }
 

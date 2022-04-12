@@ -1,5 +1,6 @@
 use super::addr::VirtualAddress;
 use super::frame::Frame;
+use super::frame_alloc::FrameAlloc;
 use super::frame_alloc::FrameAllocator;
 use super::page::Page;
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
@@ -8,9 +9,6 @@ use super::PagingError;
 // Recursive page table constants.
 // Note: the recursive entry is at index 510.
 const P4_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfdf_e000);
-/*const P3_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_bfc0_0000);
-const P2_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff7f_8000_0000);
-const P1_TABLE_BASE: VirtualAddress = VirtualAddress(0xffff_ff00_0000_0000);*/
 const RECURSIVE_INDEX: usize = 510;
 
 pub struct PageMapper<'a> {
@@ -40,11 +38,10 @@ impl<'a> PageMapper<'a> {
         }
     }
 
-    fn next_table(
-        entry: &mut PageTableEntry,
-        next: Page,
-        alloc: &mut FrameAllocator,
-    ) -> &'a mut Table {
+    fn next_table<FA>(entry: &mut PageTableEntry, next: Page, alloc: &mut FA) -> &'a mut Table
+    where
+        FA: FrameAlloc,
+    {
         if !entry.is_used() {
             if let Some(frame) = alloc.allocate_frame() {
                 entry.set_frame(frame, PTE_WRITE | PTE_PRESENT);
@@ -59,12 +56,10 @@ impl<'a> PageMapper<'a> {
         return table;
     }
 
-    pub fn map(
-        &mut self,
-        page: Page,
-        frame: Frame,
-        alloc: &mut FrameAllocator,
-    ) -> Result<(), PagingError> {
+    pub fn map<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
+    where
+        FA: FrameAlloc,
+    {
         log!("writing pml4 entry");
         let pdpt_page = recursive_page(
             RECURSIVE_INDEX,
@@ -99,12 +94,10 @@ impl<'a> PageMapper<'a> {
         Ok(())
     }
 
-    pub fn unmap(
-        &mut self,
-        page: Page,
-        frame: Frame,
-        alloc: &mut FrameAllocator,
-    ) -> Result<(), PagingError> {
+    pub fn unmap<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
+    where
+        FA: FrameAlloc,
+    {
         let pml4_entry = &mut self.root[page.pml4_offset()];
         assert!(pml4_entry.is_used());
 
@@ -151,7 +144,7 @@ impl<'a> PageMapper<'a> {
             RECURSIVE_INDEX,
             RECURSIVE_INDEX,
             RECURSIVE_INDEX,
-            page.pml4_offset()
+            page.pml4_offset(),
         );
         let pdpt = unsafe { &mut *(pdpt_page.virtual_address().0 as *mut Table) };
 
@@ -185,8 +178,7 @@ impl<'a> PageMapper<'a> {
 
 #[inline]
 fn recursive_page(pml4_index: usize, pdpt_index: usize, pd_index: usize, pt_index: usize) -> Page {
-    let addr: usize =
-        (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
+    let addr: usize = (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
     log!("new recursive page: {addr:x}");
     Page::from_virtual_address(VirtualAddress(addr))
 }
