@@ -59,6 +59,15 @@ impl MultibootInfo {
     }
 }
 
+#[derive(Debug)]
+pub enum MMapEntryType {
+    Available,
+    Reserved,
+    ACPI,
+    PreserveOnHibernate,
+    DefectiveRAM,
+}
+
 #[derive(Clone, Copy)]
 #[repr(packed)]
 pub struct MMapEntry {
@@ -81,8 +90,16 @@ impl MMapEntry {
         unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.length)) }
     }
 
-    pub fn entry_type(&self) -> u32 {
-        unsafe { core::ptr::read_unaligned(core::ptr::addr_of!(self.entry_type)) }
+    pub fn entry_type(&self) -> MMapEntryType {
+        let value;
+        unsafe { value = core::ptr::read_unaligned(core::ptr::addr_of!(self.entry_type)) }
+        match value {
+            1 => MMapEntryType::Available,
+            3 => MMapEntryType::ACPI,
+            4 => MMapEntryType::PreserveOnHibernate,
+            5 => MMapEntryType::DefectiveRAM,
+            _ => MMapEntryType::Reserved,
+        }
     }
 }
 

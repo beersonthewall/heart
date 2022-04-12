@@ -15,6 +15,10 @@ mod logging;
 mod memory;
 mod multiboot;
 
+use self::memory::PAGE_SIZE;
+
+const KERNEL_BASE: usize = 0xFFFFFFFF80000000;
+
 // Kernel entrypoint (called by arch/<foo>/start.S)
 #[no_mangle]
 pub extern "C" fn kmain(multiboot_ptr: usize) {
@@ -23,9 +27,12 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     }
 
     log!("Hello world! :)");
-    let kend: usize;
-    unsafe { kend = &kernel_end as *const _ as usize; }
-    log!("kernel_end: 0x{:x}", kend);
-    log!("multiboot ptr: 0x:{:x}", multiboot_ptr);
-    crate::memory::init(multiboot_ptr, kend);
+    let kend_vaddr: usize;
+    unsafe {
+        kend_vaddr = &kernel_end as *const _ as usize;
+    }
+    let kend_phys_addr = kend_vaddr - KERNEL_BASE;
+    // page align heap start
+    let heap_start_physical = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
+    crate::memory::init(multiboot_ptr, heap_start_physical);
 }
