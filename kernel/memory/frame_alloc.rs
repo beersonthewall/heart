@@ -10,18 +10,28 @@ use crate::multiboot::{MMapEntryType, MultibootInfo};
 /// the bootstrap frame allocator or the regular frame allocator.
 pub trait FrameAlloc {
     fn allocate_frame(&mut self) -> Option<Frame>;
-    fn deallocate_frame(&mut self);
+    fn deallocate_frame(&mut self, frame: Frame);
 }
 
 pub struct BootstrapFrameAllocator {
+    start: PhysicalAddress,
     free: Frame,
 }
 
 impl BootstrapFrameAllocator {
     pub fn new(start: PhysicalAddress) -> Self {
         Self {
+            start: start,
             free: Frame::from_physical_address(start),
         }
+    }
+
+    fn start(self) -> PhysicalAddress {
+        self.start
+    }
+
+    fn free(self) -> PhysicalAddress {
+        self.free.physical_address()
     }
 }
 
@@ -35,11 +45,13 @@ impl FrameAlloc for BootstrapFrameAllocator {
     }
 
     // For the bootstrap allocator we're not worried about de-allocating frames.
-    fn deallocate_frame(&mut self) {}
+    fn deallocate_frame(&mut self, _frame: Frame) {}
 }
 
 pub struct FrameAllocator<'a> {
     bitmap: &'a mut [u8],
+    free_frame_offset: usize,
+    free_frame_byte_offset: u8,
 }
 
 impl<'a> FrameAllocator<'a> {
@@ -76,6 +88,7 @@ impl<'a> FrameAllocator<'a> {
 
         // FIXME: detect & mark regions not in the memory map as reserved.
         // We won't necessarily have all existing memory in the map.
+        // FIXME mark frames allocated by BootstrapAllocator as used.
         for entry in info.mmap_iter() {
             if let MMapEntryType::Available = entry.entry_type() {
                 continue;
@@ -100,7 +113,14 @@ impl<'a> FrameAllocator<'a> {
             }
         }
 
-        Self { bitmap }
+        let (free_frame_offset, free_frame_byte_offset) =
+            FrameAllocator::offsets(bootstrap_frame_alloc.free().0);
+
+        Self {
+            bitmap,
+            free_frame_offset,
+            free_frame_byte_offset,
+        }
     }
 
     fn offsets(addr: usize) -> (usize, u8) {
@@ -114,8 +134,34 @@ impl<'a> FrameAllocator<'a> {
 
 impl FrameAlloc for FrameAllocator<'_> {
     fn allocate_frame(&mut self) -> Option<Frame> {
-        None
+        let frame_no = (self.free_frame_offset + self.free_frame_byte_offset as usize) * 8;
+        let mut addr = frame_no * PAGE_SIZE;
+        let frame = Frame::from_physical_address(PhysicalAddress::new(addr));
+
+        addr += PAGE_SIZE;
+        let (mut free_frame_offset, mut free_frame_byte_offset) = FrameAllocator::offsets(addr);
+        if free_frame_offset >= self.bitmap.len() {
+            addr = 0;
+            let mut found_free_frame = false;
+            while free_frame_offset < self.bitmap.len() {
+                if self.bitmap[addr] & free_frame_byte_offset == 0 {
+                    found_free_frame = true;
+                    break;
+                }
+                addr += PAGE_SIZE;
+                (free_frame_offset, free_frame_byte_offset) = FrameAllocator::offsets(addr);
+            }
+
+            if !found_free_frame {
+                panic!("OOM: No free frames");
+            }
+        }
+
+        Some(frame)
     }
 
-    fn deallocate_frame(&mut self) {}
+    fn deallocate_frame(&mut self, frame: Frame) {
+        let (offset, byte_offset) = FrameAllocator::offsets(frame.physical_address().0);
+        self.bitmap[offset] = self.bitmap[offset] ^ byte_offset;
+    }
 }

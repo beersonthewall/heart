@@ -9,7 +9,7 @@ mod page_table;
 use super::multiboot::MultibootInfo;
 use addr::{PhysicalAddress, VirtualAddress};
 use frame::Frame;
-use frame_alloc::{BootstrapFrameAllocator, FrameAllocator};
+use frame_alloc::{BootstrapFrameAllocator, FrameAllocator, FrameAlloc};
 use page::Page;
 use page_mapper::PageMapper;
 
@@ -88,6 +88,7 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
         multiboot_addr,
     );
 
-    let _frame_alloc =
+    let mut frame_alloc =
         FrameAllocator::new(bootstrap_frame_allocator, &multiboot_info, &mut page_mapper);
+    let _frame = frame_alloc.allocate_frame().unwrap();
 }

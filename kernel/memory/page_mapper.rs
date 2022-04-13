@@ -1,7 +1,6 @@
 use super::addr::VirtualAddress;
 use super::frame::Frame;
 use super::frame_alloc::FrameAlloc;
-use super::frame_alloc::FrameAllocator;
 use super::page::Page;
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
 use super::PagingError;
