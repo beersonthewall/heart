@@ -1,9 +1,9 @@
+use super::frame_allocator::FrameAlloc;
+use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
 use crate::memory::addr::VirtualAddress;
 use crate::memory::frame::Frame;
-use super::frame_alloc::FrameAlloc;
 use crate::memory::page::Page;
-use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
-use super::PagingError;
+use crate::memory::PagingError;
 
 // Recursive page table constants.
 // Note: the recursive entry is at index 510.

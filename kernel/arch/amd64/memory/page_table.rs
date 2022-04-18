@@ -1,5 +1,5 @@
-use super::addr::{PhysicalAddress, VirtualAddress};
-use super::frame::Frame;
+use crate::memory::addr::{PhysicalAddress, VirtualAddress};
+use crate::memory::frame::Frame;
 use core::ops::{Index, IndexMut};
 
 pub const PTE_PRESENT: u64 = 1;

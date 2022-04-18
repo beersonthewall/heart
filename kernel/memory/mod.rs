@@ -1,19 +1,14 @@
 pub mod addr;
-
-mod frame;
-mod frame_alloc;
-mod page;
-mod page_mapper;
-mod page_table;
+pub mod frame;
+pub mod page;
 
 use super::multiboot::MultibootInfo;
+use crate::arch::memory::frame_allocator::{BootstrapFrameAllocator, FrameAlloc, FrameAllocator};
+use crate::arch::memory::page_mapper::PageMapper;
+use crate::arch::memory::PAGE_SIZE;
 use addr::{PhysicalAddress, VirtualAddress};
 use frame::Frame;
-use frame_alloc::{BootstrapFrameAllocator, FrameAllocator, FrameAlloc};
 use page::Page;
-use page_mapper::PageMapper;
-
-pub const PAGE_SIZE: usize = 4096;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -91,4 +86,5 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
     let mut frame_alloc =
         FrameAllocator::new(bootstrap_frame_allocator, &multiboot_info, &mut page_mapper);
     let _frame = frame_alloc.allocate_frame().unwrap();
+    log!("startup complete");
 }

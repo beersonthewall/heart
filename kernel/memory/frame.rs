@@ -1,5 +1,5 @@
 use super::addr::PhysicalAddress;
-use super::PAGE_SIZE;
+use crate::arch::memory::PAGE_SIZE;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Frame {

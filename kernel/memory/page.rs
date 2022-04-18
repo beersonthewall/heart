@@ -1,5 +1,5 @@
 use super::addr::VirtualAddress;
-use super::PAGE_SIZE;
+use crate::arch::memory::PAGE_SIZE;
 
 #[derive(Clone, Copy)]
 pub struct Page {

@@ -15,7 +15,7 @@ mod logging;
 mod memory;
 mod multiboot;
 
-use self::memory::PAGE_SIZE;
+use self::arch::memory::PAGE_SIZE;
 
 const KERNEL_BASE: usize = 0xFFFFFFFF80000000;
 
