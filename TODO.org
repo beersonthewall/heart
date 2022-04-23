@@ -1,0 +1,9 @@
+* Kernel
+** Misc
+*** TODO Where possible we should avoid using usize for pointers
+** Vitual Memory
+*** TODO Frame Alloc trait shouldn't be in an architecture specific module
+*** TODO FrameAllocatorInner shouldn't assume pages from the bootstrap frame allocator will be mapped
+*** TODO FrameAllocatorInner handles missing ranges in multiboot mmap
+*** TODO Design kernel heap
+
