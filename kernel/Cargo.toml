@@ -6,3 +6,6 @@ edition = "2021"
 [lib]
 path = "main.rs"
 crate-type = ["staticlib"]
+
+[dependencies]
+spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }

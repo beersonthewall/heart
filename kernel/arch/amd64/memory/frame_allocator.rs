@@ -1,7 +1,3 @@
-/*
- * This module contains frame allocators for managing the physical memory of the system.
- */
-
 use super::page_mapper::PageMapper;
 use super::PAGE_SIZE;
 use crate::memory::addr::PhysicalAddress;
@@ -50,13 +46,13 @@ impl FrameAlloc for BootstrapFrameAllocator {
     fn deallocate_frame(&mut self, _frame: Frame) {}
 }
 
-pub struct FrameAllocator<'a> {
+pub struct FrameAllocatorInner<'a> {
     bitmap: &'a mut [u8],
     free_frame_offset: usize,
     free_frame_byte_offset: u8,
 }
 
-impl<'a> FrameAllocator<'a> {
+impl<'a> FrameAllocatorInner<'a> {
     pub fn new(
         mut bootstrap_frame_alloc: BootstrapFrameAllocator,
         info: &MultibootInfo,
@@ -110,13 +106,13 @@ impl<'a> FrameAllocator<'a> {
             assert!(base_addr % PAGE_SIZE == 0);
             assert!(end_addr % PAGE_SIZE == 0);
             for addr in (base_addr..end_addr).step_by(PAGE_SIZE) {
-                let (bitmap_offset, byte_offset) = FrameAllocator::offsets(addr);
+                let (bitmap_offset, byte_offset) = Self::offsets(addr);
                 bitmap[bitmap_offset as usize - 1] |= byte_offset;
             }
         }
 
         let (free_frame_offset, free_frame_byte_offset) =
-            FrameAllocator::offsets(bootstrap_frame_alloc.free().0);
+            Self::offsets(bootstrap_frame_alloc.free().0);
 
         Self {
             bitmap,
@@ -134,14 +130,14 @@ impl<'a> FrameAllocator<'a> {
     }
 }
 
-impl FrameAlloc for FrameAllocator<'_> {
+impl FrameAlloc for FrameAllocatorInner<'_> {
     fn allocate_frame(&mut self) -> Option<Frame> {
         let frame_no = (self.free_frame_offset + self.free_frame_byte_offset as usize) * 8;
         let mut addr = frame_no * PAGE_SIZE;
         let frame = Frame::from_physical_address(PhysicalAddress::new(addr));
 
         addr += PAGE_SIZE;
-        let (mut free_frame_offset, mut free_frame_byte_offset) = FrameAllocator::offsets(addr);
+        let (mut free_frame_offset, mut free_frame_byte_offset) = Self::offsets(addr);
         if free_frame_offset >= self.bitmap.len() {
             addr = 0;
             let mut found_free_frame = false;
@@ -151,7 +147,7 @@ impl FrameAlloc for FrameAllocator<'_> {
                     break;
                 }
                 addr += PAGE_SIZE;
-                (free_frame_offset, free_frame_byte_offset) = FrameAllocator::offsets(addr);
+                (free_frame_offset, free_frame_byte_offset) = Self::offsets(addr);
             }
 
             if !found_free_frame {
@@ -163,7 +159,7 @@ impl FrameAlloc for FrameAllocator<'_> {
     }
 
     fn deallocate_frame(&mut self, frame: Frame) {
-        let (offset, byte_offset) = FrameAllocator::offsets(frame.physical_address().0);
+        let (offset, byte_offset) = Self::offsets(frame.physical_address().0);
         self.bitmap[offset] = self.bitmap[offset] ^ byte_offset;
     }
 }
