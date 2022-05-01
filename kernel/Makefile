@@ -44,6 +44,7 @@ all: $(BIN)
 
 clean:
 	$(RM) -rf $(BIN) $(BIN).dsm $(OBJDIR)
+	$(CARGO) clean
 
 # Final link command
 $(BIN): $(OBJS) arch/$(ARCH)/link.ld
