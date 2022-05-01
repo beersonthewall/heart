@@ -2,10 +2,10 @@ QEMU = qemu-system-x86_64
 
 .PHONY: run debug build
 
-run: kernel.amd64.bin
+run: build
 	$(QEMU) -d int -kernel kernel.amd64.bin -serial stdio -no-reboot
 
-debug: kernel.amd64.bin
+debug: build
 	$(QEMU) -d int -s -S -kernel kernel.amd64.bin -serial stdio -no-reboot
 
 build:
