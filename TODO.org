@@ -3,7 +3,7 @@
 *** TODO Where possible we should avoid using usize for pointers
 ** Vitual Memory
 *** DONE Design kernel heap
-*** TODO Frame Alloc trait shouldn't be in an architecture specific module
+*** DONE Frame Alloc trait shouldn't be in an architecture specific module
 *** DONE FrameAlloc trait has a terrible name.
     Maybe FrameAllocatorAPI or something to make it different from the FrameAllocator
     struct when reading code?

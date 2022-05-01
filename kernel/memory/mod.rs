@@ -4,11 +4,19 @@ pub mod heap;
 pub mod page;
 
 use super::multiboot::MultibootInfo;
+use frame::Frame;
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum PagingError {
     Unknown,
+}
+
+/// Frame Allocation trait to enable the page_mapper functions to use either
+/// the bootstrap frame allocator or the regular frame allocator.
+pub trait FrameAllocatorAPI {
+    fn allocate_frame(&mut self) -> Option<Frame>;
+    fn deallocate_frame(&mut self, frame: Frame);
 }
 
 pub fn init(multiboot_addr: usize, heap_start: usize) {

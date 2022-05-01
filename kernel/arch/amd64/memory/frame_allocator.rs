@@ -1,17 +1,13 @@
-use crate::memory::addr::PhysicalAddress;
-use crate::memory::frame::Frame;
+use crate::memory::{
+    FrameAllocatorAPI,
+    addr::PhysicalAddress,
+    frame::Frame,
+};
 use crate::multiboot::{MMapEntryType, MultibootInfo};
 
 use super::page_mapper::PageMapper;
 use super::PAGE_SIZE;
 use spin::mutex::Mutex;
-
-/// Frame Allocation trait to enable the page_mapper functions to use either
-/// the bootstrap frame allocator or the regular frame allocator.
-pub trait FrameAllocatorAPI {
-    fn allocate_frame(&mut self) -> Option<Frame>;
-    fn deallocate_frame(&mut self, frame: Frame);
-}
 
 pub struct BootstrapFrameAllocator {
     start: PhysicalAddress,

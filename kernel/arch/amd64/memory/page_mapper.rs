@@ -1,9 +1,11 @@
-use super::frame_allocator::FrameAllocatorAPI;
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
-use crate::memory::addr::VirtualAddress;
-use crate::memory::frame::Frame;
-use crate::memory::page::Page;
-use crate::memory::PagingError;
+use crate::memory::{
+    FrameAllocatorAPI,
+    PagingError,
+    addr::VirtualAddress,
+    frame::Frame,
+    page::Page,
+};
 use spin::mutex::Mutex;
 
 // Recursive page table constants.
