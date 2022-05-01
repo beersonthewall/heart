@@ -8,9 +8,7 @@ run: kernel.amd64.bin
 debug: kernel.amd64.bin
 	$(QEMU) -d int -s -S -kernel kernel.amd64.bin -serial stdio -no-reboot
 
-build: kernel.amd64.bin
-
-kernel.amd64.bin:
+build:
 	TRIPLE= $(MAKE) -C kernel
 
 clean:
