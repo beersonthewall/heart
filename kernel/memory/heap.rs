@@ -75,11 +75,17 @@ unsafe impl GlobalAlloc for Heap {
         if let Some(ref mut heap_inner) = *self.inner.lock() {
             heap_inner.alloc(layout)
         } else {
-            panic!("Global allocation error: unable to acquire heap lock.");
+            panic!("Global allocation error: unable to acquire heap lock for alloc()");
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {}
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        if let Some(ref mut heap_inner) = *self.inner.lock() {
+            heap_inner.dealloc(ptr, layout);
+        } else {
+            panic!("Global allocation error: unable to acquire heap lock for dealloc().")
+        }
+    }
 }
 
 struct HeapInner {
@@ -146,7 +152,20 @@ impl HeapInner {
         core::ptr::null_mut()
     }
 
-    fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {}
+    fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        let slab = match SlabSize::pick_slab_size(layout.size()) {
+            Some(SlabSize::Slab16) => &mut self.slab_16_bytes,
+            Some(SlabSize::Slab32) => &mut self.slab_32_bytes,
+            Some(SlabSize::Slab64) => &mut self.slab_64_bytes,
+            Some(SlabSize::Slab128) => &mut self.slab_128_bytes,
+            Some(SlabSize::Slab256) => &mut self.slab_256_bytes,
+            Some(SlabSize::Slab512) => &mut self.slab_512_bytes,
+            None => panic!("dealloc() called for unsupported block size."),
+        };
+
+        let node = ptr as *mut FreeListNode;
+        slab.free_list.push(node);
+    }
 }
 
 struct Slab {
