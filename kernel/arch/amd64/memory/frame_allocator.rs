@@ -1,8 +1,10 @@
-use super::page_mapper::PageMapper;
-use super::PAGE_SIZE;
 use crate::memory::addr::PhysicalAddress;
 use crate::memory::frame::Frame;
 use crate::multiboot::{MMapEntryType, MultibootInfo};
+
+use super::page_mapper::PageMapper;
+use super::PAGE_SIZE;
+use spin::mutex::Mutex;
 
 /// Frame Allocation trait to enable the page_mapper functions to use either
 /// the bootstrap frame allocator or the regular frame allocator.
@@ -161,5 +163,33 @@ impl FrameAlloc for FrameAllocatorInner<'_> {
     fn deallocate_frame(&mut self, frame: Frame) {
         let (offset, byte_offset) = Self::offsets(frame.physical_address().0);
         self.bitmap[offset] = self.bitmap[offset] ^ byte_offset;
+    }
+}
+
+pub struct FrameAllocator<'a> {
+    pub inner: Mutex<Option<FrameAllocatorInner<'a>>>,
+}
+
+impl<'a> FrameAllocator<'a> {
+    pub const fn new() -> Self {
+        Self {
+            inner: Mutex::new(None),
+        }
+    }
+}
+
+impl<'a> FrameAlloc for FrameAllocator<'a> {
+    fn allocate_frame(&mut self) -> Option<Frame> {
+        if let Some(ref mut fa) = *self.inner.lock() {
+            fa.allocate_frame()
+        } else {
+            None
+        }
+    }
+
+    fn deallocate_frame(&mut self, frame: Frame) {
+        if let Some(ref mut fa) = *self.inner.lock() {
+            fa.deallocate_frame(frame);
+        }
     }
 }

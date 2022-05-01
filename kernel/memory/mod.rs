@@ -1,10 +1,9 @@
 pub mod addr;
 pub mod frame;
+pub mod heap;
 pub mod page;
 
 use super::multiboot::MultibootInfo;
-use super::arch::memory::FRAME_ALLOCATOR;
-use super::arch::memory::frame_allocator::FrameAlloc;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -32,9 +31,7 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
     }
 
     super::arch::memory::init(heap_start, &multiboot_info, multiboot_addr);
-    unsafe {
-        let f = FRAME_ALLOCATOR.allocate_frame().unwrap();
-        FRAME_ALLOCATOR.deallocate_frame(f);
-    }
-    log!("startup complete");
+    heap::init(heap_start);
+
+    log!("memory module init complete.");
 }

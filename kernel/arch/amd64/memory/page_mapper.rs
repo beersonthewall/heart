@@ -4,6 +4,7 @@ use crate::memory::addr::VirtualAddress;
 use crate::memory::frame::Frame;
 use crate::memory::page::Page;
 use crate::memory::PagingError;
+use spin::mutex::Mutex;
 
 // Recursive page table constants.
 // Note: the recursive entry is at index 510.
@@ -180,4 +181,27 @@ fn recursive_page(pml4_index: usize, pdpt_index: usize, pd_index: usize, pt_inde
     let addr: usize = (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
     log!("new recursive page: {addr:x}");
     Page::from_virtual_address(VirtualAddress(addr))
+}
+
+pub struct KernelPageMapper<'a> {
+    pub inner: Mutex<Option<PageMapper<'a>>>,
+}
+
+impl<'a> KernelPageMapper<'a> {
+    pub const fn new() -> Self {
+        Self {
+            inner: Mutex::new(None),
+        }
+    }
+
+    pub fn map<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
+    where
+        FA: FrameAlloc,
+    {
+        if let Some(ref mut page_mapper) = *self.inner.lock() {
+            page_mapper.map(page, frame, alloc)
+        } else {
+            Err(PagingError::Unknown)
+        }
+    }
 }

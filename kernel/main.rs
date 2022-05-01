@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+#![feature(default_alloc_error_handler)]
 #![feature(panic_info_message)]
 #![no_std]
 #![crate_name = "kernel"]
@@ -5,6 +7,10 @@
 /// Macros, need to be loaded before everything else due to how rust parses
 #[macro_use]
 mod macros;
+
+#[macro_use]
+extern crate alloc;
+extern crate spin;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "arch/amd64/mod.rs"]
@@ -34,5 +40,7 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     let kend_phys_addr = kend_vaddr - KERNEL_BASE;
     // page align heap start
     let heap_start_physical = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
-    crate::memory::init(multiboot_ptr, heap_start_physical);
+    memory::init(multiboot_ptr, heap_start_physical);
+    let nums = vec![1, 2, 3];
+    log!("{:?}", nums);
 }

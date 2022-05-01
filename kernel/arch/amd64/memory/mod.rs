@@ -2,44 +2,53 @@ pub mod frame_allocator;
 pub mod page_mapper;
 pub mod page_table;
 
-use crate::memory::addr::{VirtualAddress, PhysicalAddress};
-use crate::memory::page::Page;
+use crate::memory::addr::{PhysicalAddress, VirtualAddress};
 use crate::memory::frame::Frame;
+use crate::memory::page::Page;
+use crate::memory::PagingError;
 use crate::multiboot::MultibootInfo;
-use frame_allocator::{BootstrapFrameAllocator, FrameAllocatorInner, FrameAlloc};
-use page_mapper::PageMapper;
+use frame_allocator::{BootstrapFrameAllocator, FrameAlloc, FrameAllocator, FrameAllocatorInner};
+use page_mapper::{KernelPageMapper, PageMapper};
 use spin::mutex::Mutex;
 
 pub const PAGE_SIZE: usize = 4096;
 
-pub static mut FRAME_ALLOCATOR: FrameAllocator = FrameAllocator::new();
+static mut FRAME_ALLOCATOR: FrameAllocator = FrameAllocator::new();
+static mut KERNEL_PAGE_TABLE: KernelPageMapper = KernelPageMapper::new();
 
-pub struct FrameAllocator<'a> {
-    inner: Mutex<Option<FrameAllocatorInner<'a>>>,
-}
+pub fn init(heap_start: usize, multiboot_info: &MultibootInfo, multiboot_addr: usize) {
+    let mut bootstrap_frame_allocator =
+        BootstrapFrameAllocator::new(PhysicalAddress::new(heap_start));
+    let mut page_mapper = PageMapper::init_kernel_table();
 
-impl<'a> FrameAllocator<'a> {
-    const fn new() -> Self {
-        Self {
-            inner: Mutex::new(None),
-        }
+    test_page_mapper(
+        &mut page_mapper,
+        &mut bootstrap_frame_allocator,
+        multiboot_addr,
+    );
+
+    let mut fa =
+        FrameAllocatorInner::new(bootstrap_frame_allocator, multiboot_info, &mut page_mapper);
+    unsafe {
+        FRAME_ALLOCATOR.inner = Mutex::new(Some(fa));
+        KERNEL_PAGE_TABLE.inner = Mutex::new(Some(page_mapper));
     }
 }
 
-impl<'a> FrameAlloc for FrameAllocator<'a> {
-    fn allocate_frame(&mut self) -> Option<Frame> {
-        if let Some(ref mut fa) = *self.inner.lock() {
-            fa.allocate_frame()
-        } else {
-            None
-        }
-    }
+pub fn map(start: VirtualAddress, length: usize) -> Result<(), PagingError> {
+    assert!(length % PAGE_SIZE == 0);
+    let num_frames = length / PAGE_SIZE;
 
-    fn deallocate_frame(&mut self, frame: Frame) {
-        if let Some(ref mut fa) = *self.inner.lock() {
-            fa.deallocate_frame(frame);
+    for _ in 0..num_frames {
+        let page = Page::from_virtual_address(start);
+        unsafe {
+            let frame = FRAME_ALLOCATOR.allocate_frame().unwrap();
+            log!("{:?}", page);
+            log!("{:?}", frame);
+            KERNEL_PAGE_TABLE.map(page, frame, &mut FRAME_ALLOCATOR)?;
         }
     }
+    Ok(())
 }
 
 fn test_page_mapper(
@@ -78,22 +87,4 @@ fn test_page_mapper(
         page_mapper.is_mapped(mboot_page),
         "Multiboot struct should be identity mapped."
     );
-}
-
-pub fn init(heap_start: usize, multiboot_info: &MultibootInfo, multiboot_addr: usize) {
-    let mut bootstrap_frame_allocator =
-        BootstrapFrameAllocator::new(PhysicalAddress::new(heap_start));
-    let mut page_mapper = PageMapper::init_kernel_table();
-
-    test_page_mapper(
-        &mut page_mapper,
-        &mut bootstrap_frame_allocator,
-        multiboot_addr,
-    );
-
-    let mut fa =
-        FrameAllocatorInner::new(bootstrap_frame_allocator, multiboot_info, &mut page_mapper);
-    unsafe {
-        FRAME_ALLOCATOR.inner = Mutex::new(Some(fa))
-    }
 }

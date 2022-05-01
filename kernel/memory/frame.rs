@@ -1,7 +1,7 @@
 use super::addr::PhysicalAddress;
 use crate::arch::memory::PAGE_SIZE;
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Frame {
     pub frame_number: usize,
 }
