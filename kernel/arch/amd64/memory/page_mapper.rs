@@ -1,4 +1,4 @@
-use super::frame_allocator::FrameAlloc;
+use super::frame_allocator::FrameAllocatorAPI;
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
 use crate::memory::addr::VirtualAddress;
 use crate::memory::frame::Frame;
@@ -40,7 +40,7 @@ impl<'a> PageMapper<'a> {
 
     fn next_table<FA>(entry: &mut PageTableEntry, next: Page, alloc: &mut FA) -> &'a mut Table
     where
-        FA: FrameAlloc,
+        FA: FrameAllocatorAPI,
     {
         if !entry.is_used() {
             if let Some(frame) = alloc.allocate_frame() {
@@ -58,7 +58,7 @@ impl<'a> PageMapper<'a> {
 
     pub fn map<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
     where
-        FA: FrameAlloc,
+        FA: FrameAllocatorAPI,
     {
         log!("writing pml4 entry");
         let pdpt_page = recursive_page(
@@ -96,7 +96,7 @@ impl<'a> PageMapper<'a> {
 
     pub fn unmap<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
     where
-        FA: FrameAlloc,
+        FA: FrameAllocatorAPI,
     {
         let pml4_entry = &mut self.root[page.pml4_offset()];
         assert!(pml4_entry.is_used());
@@ -196,7 +196,7 @@ impl<'a> KernelPageMapper<'a> {
 
     pub fn map<FA>(&mut self, page: Page, frame: Frame, alloc: &mut FA) -> Result<(), PagingError>
     where
-        FA: FrameAlloc,
+        FA: FrameAllocatorAPI,
     {
         if let Some(ref mut page_mapper) = *self.inner.lock() {
             page_mapper.map(page, frame, alloc)

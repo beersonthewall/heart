@@ -8,7 +8,7 @@ use spin::mutex::Mutex;
 
 /// Frame Allocation trait to enable the page_mapper functions to use either
 /// the bootstrap frame allocator or the regular frame allocator.
-pub trait FrameAlloc {
+pub trait FrameAllocatorAPI {
     fn allocate_frame(&mut self) -> Option<Frame>;
     fn deallocate_frame(&mut self, frame: Frame);
 }
@@ -35,7 +35,7 @@ impl BootstrapFrameAllocator {
     }
 }
 
-impl FrameAlloc for BootstrapFrameAllocator {
+impl FrameAllocatorAPI for BootstrapFrameAllocator {
     fn allocate_frame(&mut self) -> Option<Frame> {
         let f = self.free;
         self.free = Frame {
@@ -132,7 +132,7 @@ impl<'a> FrameAllocatorInner<'a> {
     }
 }
 
-impl FrameAlloc for FrameAllocatorInner<'_> {
+impl FrameAllocatorAPI for FrameAllocatorInner<'_> {
     fn allocate_frame(&mut self) -> Option<Frame> {
         let frame_no = (self.free_frame_offset + self.free_frame_byte_offset as usize) * 8;
         let mut addr = frame_no * PAGE_SIZE;
@@ -178,7 +178,7 @@ impl<'a> FrameAllocator<'a> {
     }
 }
 
-impl<'a> FrameAlloc for FrameAllocator<'a> {
+impl<'a> FrameAllocatorAPI for FrameAllocator<'a> {
     fn allocate_frame(&mut self) -> Option<Frame> {
         if let Some(ref mut fa) = *self.inner.lock() {
             fa.allocate_frame()

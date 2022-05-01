@@ -7,7 +7,7 @@ use crate::memory::frame::Frame;
 use crate::memory::page::Page;
 use crate::memory::PagingError;
 use crate::multiboot::MultibootInfo;
-use frame_allocator::{BootstrapFrameAllocator, FrameAlloc, FrameAllocator, FrameAllocatorInner};
+use frame_allocator::{BootstrapFrameAllocator, FrameAllocatorAPI, FrameAllocator, FrameAllocatorInner};
 use page_mapper::{KernelPageMapper, PageMapper};
 use spin::mutex::Mutex;
 
