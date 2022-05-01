@@ -15,3 +15,4 @@ kernel.amd64.bin:
 
 clean:
 	@rm kernel.amd64*
+	$(MAKE) -C kernel clean
