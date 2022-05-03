@@ -1,10 +1,6 @@
 use super::page_table::{PageTableEntry, Table, PTE_PRESENT, PTE_WRITE};
 use crate::memory::{
-    FrameAllocatorAPI,
-    PagingError,
-    addr::VirtualAddress,
-    frame::Frame,
-    page::Page,
+    addr::VirtualAddress, frame::Frame, page::Page, FrameAllocatorAPI, PagingError,
 };
 use spin::mutex::Mutex;
 
@@ -53,7 +49,6 @@ impl<'a> PageMapper<'a> {
         }
 
         let vaddr = next.virtual_address().0;
-        log!("table vaddr: {vaddr:x}");
         let table = unsafe { &mut *(next.virtual_address().0 as *mut Table) };
         return table;
     }
@@ -62,7 +57,6 @@ impl<'a> PageMapper<'a> {
     where
         FA: FrameAllocatorAPI,
     {
-        log!("writing pml4 entry");
         let pdpt_page = recursive_page(
             RECURSIVE_INDEX,
             RECURSIVE_INDEX,
@@ -71,7 +65,6 @@ impl<'a> PageMapper<'a> {
         );
         let pdpt = PageMapper::next_table(&mut self.root[page.pml4_offset()], pdpt_page, alloc);
 
-        log!("writing pdpt entry");
         let pd_page = recursive_page(
             RECURSIVE_INDEX,
             RECURSIVE_INDEX,
@@ -80,7 +73,6 @@ impl<'a> PageMapper<'a> {
         );
         let pd = PageMapper::next_table(&mut pdpt[page.pdpt_offset()], pd_page, alloc);
 
-        log!("writing pd entry");
         let pt_page = recursive_page(
             RECURSIVE_INDEX,
             page.pml4_offset(),
@@ -89,7 +81,6 @@ impl<'a> PageMapper<'a> {
         );
         let pt = PageMapper::next_table(&mut pd[page.pd_offset()], pt_page, alloc);
 
-        log!("writing pt entry");
         let entry = &mut pt[page.pt_offset()];
         entry.set_frame(frame, PTE_WRITE | PTE_PRESENT);
 
@@ -181,7 +172,6 @@ impl<'a> PageMapper<'a> {
 #[inline]
 fn recursive_page(pml4_index: usize, pdpt_index: usize, pd_index: usize, pt_index: usize) -> Page {
     let addr: usize = (pml4_index << 39) | (pdpt_index << 30) | (pd_index << 21) | (pt_index << 12);
-    log!("new recursive page: {addr:x}");
     Page::from_virtual_address(VirtualAddress(addr))
 }
 

@@ -5,9 +5,9 @@ pub mod page_table;
 use crate::memory::addr::{PhysicalAddress, VirtualAddress};
 use crate::memory::frame::Frame;
 use crate::memory::page::Page;
+use crate::memory::FrameAllocatorAPI;
 use crate::memory::PagingError;
 use crate::multiboot::MultibootInfo;
-use crate::memory::FrameAllocatorAPI;
 use frame_allocator::{BootstrapFrameAllocator, FrameAllocator, FrameAllocatorInner};
 use page_mapper::{KernelPageMapper, PageMapper};
 use spin::mutex::Mutex;
@@ -44,8 +44,6 @@ pub fn map(start: VirtualAddress, length: usize) -> Result<(), PagingError> {
         let page = Page::from_virtual_address(start);
         unsafe {
             let frame = FRAME_ALLOCATOR.allocate_frame().unwrap();
-            log!("{:?}", page);
-            log!("{:?}", frame);
             KERNEL_PAGE_TABLE.map(page, frame, &mut FRAME_ALLOCATOR)?;
         }
     }
