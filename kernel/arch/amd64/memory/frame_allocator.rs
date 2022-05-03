@@ -1,8 +1,4 @@
-use crate::memory::{
-    FrameAllocatorAPI,
-    addr::PhysicalAddress,
-    frame::Frame,
-};
+use crate::memory::{addr::PhysicalAddress, frame::Frame, FrameAllocatorAPI};
 use crate::multiboot::{MMapEntryType, MultibootInfo};
 
 use super::page_mapper::PageMapper;
@@ -22,11 +18,11 @@ impl BootstrapFrameAllocator {
         }
     }
 
-    fn start(self) -> PhysicalAddress {
+    fn start(&self) -> PhysicalAddress {
         self.start
     }
 
-    fn free(self) -> PhysicalAddress {
+    fn free(&self) -> PhysicalAddress {
         self.free.physical_address()
     }
 }
@@ -84,7 +80,6 @@ impl<'a> FrameAllocatorInner<'a> {
 
         // FIXME: detect & mark regions not in the memory map as reserved.
         // We won't necessarily have all existing memory in the map.
-        // FIXME mark frames allocated by BootstrapAllocator as used.
         for entry in info.mmap_iter() {
             if let MMapEntryType::Available = entry.entry_type() {
                 continue;
@@ -107,6 +102,14 @@ impl<'a> FrameAllocatorInner<'a> {
                 let (bitmap_offset, byte_offset) = Self::offsets(addr);
                 bitmap[bitmap_offset as usize - 1] |= byte_offset;
             }
+        }
+
+        // Mark frames allocated by bootstrap frame allocator as used.
+        for frame_addr in
+            (bootstrap_frame_alloc.start().0..bootstrap_frame_alloc.free().0).step_by(PAGE_SIZE)
+        {
+            let (bitmap_offset, byte_offset) = Self::offsets(frame_addr);
+            bitmap[bitmap_offset as usize - 1] |= byte_offset;
         }
 
         let (free_frame_offset, free_frame_byte_offset) =
