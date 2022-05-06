@@ -8,7 +8,7 @@
     Maybe FrameAllocatorAPI or something to make it different from the FrameAllocator
     struct when reading code?
     Renamed to FrameAllocatorAPI
-*** TODO FrameAllocatorInner shouldn't assume pages from the bootstrap frame allocator will be mapped
+*** DONE FrameAllocatorInner shouldn't assume pages from the bootstrap frame allocator will be mapped
 *** TODO FrameAllocatorInner handles missing ranges in multiboot mmap
 
 

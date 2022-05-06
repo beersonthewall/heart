@@ -1,8 +1,12 @@
-use crate::memory::{addr::PhysicalAddress, frame::Frame, FrameAllocatorAPI};
-use crate::multiboot::{MMapEntryType, MultibootInfo};
-
 use super::page_mapper::PageMapper;
 use super::PAGE_SIZE;
+use crate::memory::{
+    addr::{PhysicalAddress, VirtualAddress},
+    frame::Frame,
+    page::Page,
+    FrameAllocatorAPI,
+};
+use crate::multiboot::{MMapEntryType, MultibootInfo};
 use spin::mutex::Mutex;
 
 pub struct BootstrapFrameAllocator {
@@ -50,7 +54,7 @@ impl<'a> FrameAllocatorInner<'a> {
     pub fn new(
         mut bootstrap_frame_alloc: BootstrapFrameAllocator,
         info: &MultibootInfo,
-        _page_mapper: &mut PageMapper,
+        page_mapper: &mut PageMapper,
     ) -> Self {
         let mut total_bytes_of_memory: usize = 0;
         for entry in info.mmap_iter() {
@@ -70,7 +74,17 @@ impl<'a> FrameAllocatorInner<'a> {
         );
 
         for _ in 1..frames {
-            bootstrap_frame_alloc.allocate_frame().unwrap();
+            let frame = bootstrap_frame_alloc.allocate_frame().unwrap();
+
+            // The bootstrap frame allcator starts at kernel end which may or may not be identity
+            // mapped in start.S. We map a single 2MB page which is supposed to cover the kernel,
+            // but will cover the frames allocated by the bootstrap allocator if the kernel < 2MB.
+            let page = Page::from_virtual_address(VirtualAddress::new(frame.physical_address().0));
+            if !page_mapper.is_mapped(page) {
+                page_mapper
+                    .map(page, frame, &mut bootstrap_frame_alloc)
+                    .expect("Failure mapping page in frame allocator creation.");
+            }
         }
 
         let ptr = bitmap_start_frame.physical_address().0 as *mut u8;
