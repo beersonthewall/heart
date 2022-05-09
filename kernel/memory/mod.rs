@@ -3,6 +3,8 @@ pub mod frame;
 pub mod heap;
 pub mod page;
 
+mod linked_list_heap;
+
 use super::multiboot::MultibootInfo;
 use frame::Frame;
 

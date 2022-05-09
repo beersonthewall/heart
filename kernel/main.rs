@@ -41,6 +41,12 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     // page align heap start
     let heap_start_physical = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
     memory::init(multiboot_ptr, heap_start_physical);
-    let nums = vec![1, 2, 3];
+    use alloc::vec::Vec;
+
+    // Test the linked_list_allocator by allocating a larger size than the biggest slab.
+    let mut nums: Vec<usize> = Vec::with_capacity(1024);
+    for i in 0..1024 {
+        nums.push(i);
+    }
     log!("{:?}", nums);
 }

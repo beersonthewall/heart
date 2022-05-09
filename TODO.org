@@ -10,4 +10,5 @@
     Renamed to FrameAllocatorAPI
 *** DONE FrameAllocatorInner shouldn't assume pages from the bootstrap frame allocator will be mapped
 *** TODO FrameAllocatorInner handles missing ranges in multiboot mmap
-*** TODO Slab allocator should default to a best fit allocator if an allocation wants more memory than a slab can provide
+*** DONE Slab allocator should default to a best fit allocator if an allocation wants more memory than a slab can provide
+*** TODO LinkedListHeap should merge nodes if possible to avoid fragmenting into too many (relatively) small nodes

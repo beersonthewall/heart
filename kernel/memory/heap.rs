@@ -1,6 +1,8 @@
-use super::addr::VirtualAddress;
 use alloc::alloc::{GlobalAlloc, Layout};
 use spin::Mutex;
+
+use super::addr::VirtualAddress;
+use super::linked_list_heap::LinkedListHeap;
 
 const INITIAL_HEAP_SIZE: usize = 2 * 1024 * 1024;
 
@@ -26,6 +28,10 @@ enum SlabSize {
 }
 
 impl SlabSize {
+    const fn maximum() -> usize {
+        512
+    }
+
     fn len(&self) -> usize {
         match self {
             Slab16 => 16,
@@ -75,7 +81,7 @@ unsafe impl GlobalAlloc for Heap {
         if let Some(ref mut heap_inner) = *self.inner.lock() {
             heap_inner.alloc(layout)
         } else {
-            panic!("Global allocation error: unable to acquire heap lock for alloc()");
+            panic!("Global allocation error: unable to acquire heap lock for alloc()")
         }
     }
 
@@ -95,46 +101,56 @@ struct HeapInner {
     slab_128_bytes: Slab,
     slab_256_bytes: Slab,
     slab_512_bytes: Slab,
+    linked_list_allocator: LinkedListHeap,
 }
 
 impl HeapInner {
     fn new(heap_start: *mut u8) -> Self {
-        let slab_allocation_size = INITIAL_HEAP_SIZE / 6;
+        let allocation_size = INITIAL_HEAP_SIZE / 7;
         Self {
             slab_16_bytes: Slab::new(
-                unsafe { heap_start.offset(0 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(0 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab16,
             ),
             slab_32_bytes: Slab::new(
-                unsafe { heap_start.offset(1 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(1 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab32,
             ),
             slab_64_bytes: Slab::new(
-                unsafe { heap_start.offset(2 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(2 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab64,
             ),
             slab_128_bytes: Slab::new(
-                unsafe { heap_start.offset(3 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(3 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab128,
             ),
             slab_256_bytes: Slab::new(
-                unsafe { heap_start.offset(4 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(4 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab256,
             ),
             slab_512_bytes: Slab::new(
-                unsafe { heap_start.offset(5 * slab_allocation_size as isize) },
-                slab_allocation_size,
+                unsafe { heap_start.offset(5 * allocation_size as isize) },
+                allocation_size,
                 SlabSize::Slab512,
+            ),
+            linked_list_allocator: LinkedListHeap::new(
+                unsafe { heap_start.offset(6 * allocation_size as isize) },
+                allocation_size,
             ),
         }
     }
 
     fn alloc(&mut self, layout: Layout) -> *mut u8 {
+
+        if layout.size() > SlabSize::maximum() {
+            return unsafe { self.linked_list_allocator.alloc(layout)};
+        }
+
         let slab = match SlabSize::pick_slab_size(layout.size()) {
             Some(SlabSize::Slab16) => &mut self.slab_16_bytes,
             Some(SlabSize::Slab32) => &mut self.slab_32_bytes,
@@ -153,6 +169,11 @@ impl HeapInner {
     }
 
     fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        if layout.size() > SlabSize::maximum() {
+            unsafe { self.linked_list_allocator.dealloc(ptr, layout); }
+            return;
+        }
+
         let slab = match SlabSize::pick_slab_size(layout.size()) {
             Some(SlabSize::Slab16) => &mut self.slab_16_bytes,
             Some(SlabSize::Slab32) => &mut self.slab_32_bytes,
