@@ -33,18 +33,18 @@ unsafe impl GlobalAlloc for LinkedListHeap {
 }
 
 struct LinkedListHeapInner {
-    head: *mut LinkedListHeapNode,
+    head: *mut MemoryRegion,
 }
 
 #[repr(C)]
-struct LinkedListHeapNode {
-    next: *mut LinkedListHeapNode,
+struct MemoryRegion {
+    next: *mut MemoryRegion,
     len: usize,
 }
 
 impl LinkedListHeapInner {
     fn new(start: *mut u8, len: usize) -> Self {
-        let head = start as *mut LinkedListHeapNode;
+        let head = start as *mut MemoryRegion;
         unsafe {
             (*head).next = core::ptr::null_mut();
             (*head).len = len;
@@ -52,7 +52,7 @@ impl LinkedListHeapInner {
         Self { head }
     }
 
-    fn pop(&mut self) -> *mut LinkedListHeapNode {
+    fn pop(&mut self) -> *mut MemoryRegion {
         let current = self.head;
         unsafe {
             self.head = (*self.head).next;
@@ -93,10 +93,10 @@ impl LinkedListHeapInner {
         // be holes smaller than the max slab size which shouldn't happen any
         // other way besides this since we don't use this allocator as a stand-alone
         // but rather a backup to the slab allocator.
-        if difference > core::mem::size_of::<LinkedListHeapNode>() {
+        if difference > core::mem::size_of::<MemoryRegion>() {
             let ptr = current as *mut u8;
             let ptr = ptr.offset(difference as isize);
-            let ptr = ptr as *mut LinkedListHeapNode;
+            let ptr = ptr as *mut MemoryRegion;
             (*ptr).next = self.head;
             (*ptr).len = difference;
             self.head = ptr;
@@ -107,7 +107,7 @@ impl LinkedListHeapInner {
 
     unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
         if self.head.is_null() {
-            let ptr = ptr as *mut LinkedListHeapNode;
+            let ptr = ptr as *mut MemoryRegion;
             let node = &mut *ptr;
             node.next = core::ptr::null_mut();
             node.len = layout.size();
@@ -115,7 +115,7 @@ impl LinkedListHeapInner {
         }
 
         let mut current = self.head;
-        let ptr = ptr as *mut LinkedListHeapNode;
+        let ptr = ptr as *mut MemoryRegion;
 
         while ptr > current && !current.is_null() {
             current = (*current).next;
