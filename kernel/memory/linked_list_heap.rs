@@ -61,6 +61,10 @@ impl LinkedListHeapInner {
     }
 
     unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
+	if layout.size() == 0 {
+	    return core::ptr::null_mut();
+	}
+
         let mut total = 0;
         let mut count = 0;
         let mut current = self.head;

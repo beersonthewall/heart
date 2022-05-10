@@ -12,3 +12,4 @@
 *** TODO FrameAllocatorInner handles missing ranges in multiboot mmap
 *** DONE Slab allocator should default to a best fit allocator if an allocation wants more memory than a slab can provide
 *** TODO LinkedListHeap should merge nodes if possible to avoid fragmenting into too many (relatively) small nodes
+*** TODO LinkedListHeap should correctly align pointers based on the layout
