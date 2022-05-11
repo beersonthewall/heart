@@ -1,6 +1,7 @@
 #![feature(allocator_api)]
 #![feature(default_alloc_error_handler)]
 #![feature(panic_info_message)]
+#![feature(ptr_to_from_bits)]
 #![no_std]
 #![crate_name = "kernel"]
 

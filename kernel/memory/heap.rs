@@ -10,7 +10,12 @@ const INITIAL_HEAP_SIZE: usize = 2 * 1024 * 1024;
 static mut HEAP: Heap = Heap::new();
 
 pub fn init(heap_start: usize) {
-    let heap_start = VirtualAddress::new(heap_start);
+    let aligned_heap_start_ptr = heap_start as *mut u8;
+    let aligned_heap_start_ptr = unsafe {
+        aligned_heap_start_ptr
+            .add(aligned_heap_start_ptr.align_offset(core::mem::size_of::<*mut u8>()))
+    };
+    let heap_start = VirtualAddress::new(aligned_heap_start_ptr.to_bits());
     let _ = crate::arch::memory::map(heap_start, INITIAL_HEAP_SIZE).unwrap();
     let heap = HeapInner::new(heap_start.0 as *mut u8);
     unsafe {
@@ -146,9 +151,8 @@ impl HeapInner {
     }
 
     fn alloc(&mut self, layout: Layout) -> *mut u8 {
-
         if layout.size() > SlabSize::maximum() {
-            return unsafe { self.linked_list_allocator.alloc(layout)};
+            return unsafe { self.linked_list_allocator.alloc(layout) };
         }
 
         let slab = match SlabSize::pick_slab_size(layout.size()) {
@@ -170,7 +174,9 @@ impl HeapInner {
 
     fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
         if layout.size() > SlabSize::maximum() {
-            unsafe { self.linked_list_allocator.dealloc(ptr, layout); }
+            unsafe {
+                self.linked_list_allocator.dealloc(ptr, layout);
+            }
             return;
         }
 
