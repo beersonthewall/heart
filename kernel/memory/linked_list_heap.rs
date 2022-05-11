@@ -84,9 +84,7 @@ impl LinkedListHeapInner {
         let head = self.head;
 
         // Remove node(s) from the heap
-        for _ in 0..count {
-            let _ = self.pop();
-        }
+	(0..count).for_each(|_| { self.pop(); });
 
         // Lastly we need to check if there's leftover space in the last node that
         // should be added to the new head.
