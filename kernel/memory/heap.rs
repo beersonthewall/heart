@@ -10,15 +10,13 @@ const INITIAL_HEAP_SIZE: usize = 2 * 1024 * 1024;
 static mut HEAP: Heap = Heap::new();
 
 pub fn init(heap_start: usize) {
-    let aligned_heap_start_ptr = heap_start as *mut u8;
-    let aligned_heap_start_ptr = unsafe {
-        aligned_heap_start_ptr
-            .add(aligned_heap_start_ptr.align_offset(core::mem::size_of::<*mut u8>()))
-    };
-    let heap_start = VirtualAddress::new(aligned_heap_start_ptr.to_bits());
-    let _ = crate::arch::memory::map(heap_start, INITIAL_HEAP_SIZE).unwrap();
-    let heap = HeapInner::new(heap_start.0 as *mut u8);
     unsafe {
+        let aligned_heap_start_ptr = heap_start as *mut u8;
+        let aligned_heap_start_ptr = aligned_heap_start_ptr
+            .add(aligned_heap_start_ptr.align_offset(core::mem::size_of::<*mut u8>()));
+        let heap_start = VirtualAddress::new(aligned_heap_start_ptr.to_bits());
+        let _ = crate::arch::memory::map(heap_start, INITIAL_HEAP_SIZE).unwrap();
+        let heap = HeapInner::new(heap_start.0 as *mut u8);
         HEAP.inner = Mutex::new(Some(heap));
     }
 }
@@ -110,41 +108,41 @@ struct HeapInner {
 }
 
 impl HeapInner {
-    fn new(heap_start: *mut u8) -> Self {
+    unsafe fn new(heap_start: *mut u8) -> Self {
         let allocation_size = INITIAL_HEAP_SIZE / 7;
         Self {
             slab_16_bytes: Slab::new(
-                unsafe { heap_start.offset(0 * allocation_size as isize) },
+                heap_start.offset(0 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab16,
             ),
             slab_32_bytes: Slab::new(
-                unsafe { heap_start.offset(1 * allocation_size as isize) },
+                heap_start.offset(1 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab32,
             ),
             slab_64_bytes: Slab::new(
-                unsafe { heap_start.offset(2 * allocation_size as isize) },
+                heap_start.offset(2 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab64,
             ),
             slab_128_bytes: Slab::new(
-                unsafe { heap_start.offset(3 * allocation_size as isize) },
+                heap_start.offset(3 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab128,
             ),
             slab_256_bytes: Slab::new(
-                unsafe { heap_start.offset(4 * allocation_size as isize) },
+                heap_start.offset(4 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab256,
             ),
             slab_512_bytes: Slab::new(
-                unsafe { heap_start.offset(5 * allocation_size as isize) },
+                heap_start.offset(5 * allocation_size as isize),
                 allocation_size,
                 SlabSize::Slab512,
             ),
             linked_list_allocator: LinkedListHeap::new(
-                unsafe { heap_start.offset(6 * allocation_size as isize) },
+                heap_start.offset(6 * allocation_size as isize),
                 allocation_size,
             ),
         }

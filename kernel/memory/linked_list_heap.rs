@@ -1,5 +1,6 @@
 use alloc::alloc::{GlobalAlloc, Layout};
-use core::ptr::NonNull;
+use core::mem::{align_of, size_of};
+use core::ptr::null_mut;
 use spin::mutex::Mutex;
 
 pub struct LinkedListHeap {
@@ -7,7 +8,7 @@ pub struct LinkedListHeap {
 }
 
 impl LinkedListHeap {
-    pub fn new(start: *mut u8, len: usize) -> Self {
+    pub unsafe fn new(start: *mut u8, len: usize) -> Self {
         Self {
             inner: Mutex::new(LinkedListHeapInner::new(start, len)),
         }
@@ -43,68 +44,100 @@ struct MemoryRegion {
 }
 
 impl LinkedListHeapInner {
-    fn new(start: *mut u8, len: usize) -> Self {
-        let head = start as *mut MemoryRegion;
-        unsafe {
-            (*head).next = core::ptr::null_mut();
-            (*head).len = len;
-        }
+    unsafe fn new(start: *mut u8, len: usize) -> Self {
+        let head = start.cast::<MemoryRegion>();
+        let head = head.add(align_of::<MemoryRegion>());
+        head.write(MemoryRegion {
+            next: null_mut(),
+            len: len,
+        });
         Self { head }
     }
 
-    fn pop(&mut self) -> *mut MemoryRegion {
+    unsafe fn pop(&mut self) -> *mut MemoryRegion {
         let current = self.head;
-        unsafe {
-            self.head = (*self.head).next;
-        }
+        self.head = (*self.head).next;
         current
     }
 
+    unsafe fn find_first_fit(&mut self, layout: Layout) -> *mut u8 {
+        self.debug_heap();
+
+        let mut prev_ptr = null_mut();
+        let mut cur_ptr = self.head;
+
+        loop {
+
+            if cur_ptr.is_null() {
+                return null_mut();
+            }
+            let current = cur_ptr.read();
+
+            let raw_ptr = cur_ptr as *mut u8;
+            let front_pad = if raw_ptr.align_offset(layout.align()) < size_of::<MemoryRegion>() {
+                raw_ptr.align_offset(layout.align()) + layout.align()
+            } else {
+                raw_ptr.align_offset(layout.align())
+            };
+
+            let layout_size = front_pad + layout.size();
+            let back_pad = current.len - layout_size;
+
+            log!("fp: {}, lsz: {}, laln: {}, bp: {}, o: {}", front_pad, layout_size, layout.align(), back_pad, raw_ptr.align_offset(layout.align()));
+            if layout_size > current.len || (back_pad > 0 && back_pad < size_of::<MemoryRegion>()) {
+                prev_ptr = cur_ptr;
+                cur_ptr = current.next;
+                continue;
+            }
+
+            let next_region = if back_pad > 0 {
+                let back_region = cur_ptr.add(layout_size);
+                back_region.write(MemoryRegion {
+                    next: current.next,
+                    len: back_pad,
+                });
+
+                back_region
+            } else {
+                current.next
+            };
+
+            if front_pad > 0 {
+                cur_ptr.write(MemoryRegion {
+                    next: next_region,
+                    len: front_pad,
+                });
+            } else if prev_ptr.is_null() {
+                self.head = next_region;
+            } else {
+                (*prev_ptr).next = next_region;
+            }
+
+            // [p1, p2] [c1, c2] [n1, n2]
+            // null [c1, c2] null
+            // null [c1, c2] [n1, n2]
+            // [p1, p2] [c1, c2] null
+
+            // TODO Merge
+
+            self.debug_heap();
+            return cur_ptr.add(front_pad) as *mut u8;
+        }
+    }
+
     unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
-	if layout.size() == 0 {
-	    return core::ptr::null_mut();
-	}
-
-        let mut total = 0;
-        let mut count = 0;
-        let mut current = self.head;
-
-        while total < layout.size() && !current.is_null() {
-            count += 1;
-            total += (*current).len;
-            current = (*self.head).next;
+        if layout.size() == 0 {
+            return null_mut();
         }
 
-        if current.is_null() && total < layout.size() {
-            // OOM, maybe just panic instead?
-            return core::ptr::null_mut();
+        let mut sz = layout.size();
+        if sz < size_of::<MemoryRegion>() {
+            sz = size_of::<MemoryRegion>();
         }
+        let layout = Layout::from_size_align(sz, layout.align())
+            .expect("Failure to create layout with a minimum size.");
 
-        // Hold on to start of the allocation to return after we're done
-        let head = self.head;
-
-        // Remove node(s) from the heap
-	(0..count).for_each(|_| { self.pop(); });
-
-        // Lastly we need to check if there's leftover space in the last node that
-        // should be added to the new head.
-        let difference = total - layout.size();
-
-        // If not large enough, we can just move on with our lives.
-        // Can possibly detect when merging in dealloc() and reclaim because these will
-        // be holes smaller than the max slab size which shouldn't happen any
-        // other way besides this since we don't use this allocator as a stand-alone
-        // but rather a backup to the slab allocator.
-        if difference > core::mem::size_of::<MemoryRegion>() {
-            let ptr = current as *mut u8;
-            let ptr = ptr.offset(difference as isize);
-            let ptr = ptr as *mut MemoryRegion;
-            (*ptr).next = self.head;
-            (*ptr).len = difference;
-            self.head = ptr;
-        }
-
-        return head as *mut u8;
+        self.find_first_fit(layout)
     }
 
     unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
@@ -136,6 +169,7 @@ impl LinkedListHeapInner {
 
     #[allow(dead_code)]
     unsafe fn debug_heap(&mut self) {
+        log!("debugging heap...");
         if self.head.is_null() {
             log!("Linked List Allocator is empty");
             return;
