@@ -37,12 +37,12 @@ impl SlabSize {
 
     fn len(&self) -> usize {
         match self {
-            Slab16 => 16,
-            Slab32 => 32,
-            Slab64 => 64,
-            Slab128 => 128,
-            Slab256 => 256,
-            Slab512 => 512,
+            SlabSize::Slab16 => 16,
+            SlabSize::Slab32 => 32,
+            SlabSize::Slab64 => 64,
+            SlabSize::Slab128 => 128,
+            SlabSize::Slab256 => 256,
+            SlabSize::Slab512 => 512,
         }
     }
 

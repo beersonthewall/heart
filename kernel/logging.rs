@@ -31,7 +31,7 @@ impl ::core::ops::Drop for Writer {
         // Write a terminating newline before releasing the lock
         {
             use core::fmt::Write;
-            let _ = write!(self, "\n");
+            let _ = writeln!(self);
         }
         // On drop, "release" the lock
         if self.0 {

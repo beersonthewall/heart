@@ -112,8 +112,8 @@ pub struct MMapIter {
 impl MMapIter {
     fn new(start: *const u8, length: u32) -> Self {
         Self {
-            start: start,
-            length: length,
+            start,
+            length,
             current_offset: 0,
         }
     }

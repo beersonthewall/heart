@@ -48,7 +48,6 @@ impl<'a> PageMapper<'a> {
             }
         }
 
-        let vaddr = next.virtual_address().0;
         let table = unsafe { &mut *(next.virtual_address().0 as *mut Table) };
         return table;
     }

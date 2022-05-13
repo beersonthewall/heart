@@ -28,7 +28,7 @@ pub fn init(heap_start: usize, multiboot_info: &MultibootInfo, multiboot_addr: u
         multiboot_addr,
     );
 
-    let mut fa =
+    let fa =
         FrameAllocatorInner::new(bootstrap_frame_allocator, multiboot_info, &mut page_mapper);
     unsafe {
         FRAME_ALLOCATOR.inner = Mutex::new(Some(fa));

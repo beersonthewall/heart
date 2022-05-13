@@ -17,7 +17,7 @@ pub struct BootstrapFrameAllocator {
 impl BootstrapFrameAllocator {
     pub fn new(start: PhysicalAddress) -> Self {
         Self {
-            start: start,
+            start,
             free: Frame::from_physical_address(start),
         }
     }

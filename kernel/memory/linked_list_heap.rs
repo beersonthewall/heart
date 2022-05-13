@@ -17,19 +17,13 @@ impl LinkedListHeap {
 
 unsafe impl GlobalAlloc for LinkedListHeap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if let ref mut ll_heap_inner = *self.inner.lock() {
-            ll_heap_inner.alloc(layout)
-        } else {
-            panic!("Linked list heap lock poisoned")
-        }
+        let ref mut ll_heap_inner = *self.inner.lock();
+        ll_heap_inner.alloc(layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        if let ref mut ll_heap_inner = *self.inner.lock() {
-            ll_heap_inner.dealloc(ptr, layout);
-        } else {
-            panic!("Linked list heap lock poisoned");
-        }
+        let ref mut ll_heap_inner = *self.inner.lock();
+        ll_heap_inner.dealloc(ptr, layout)
     }
 }
 
@@ -49,15 +43,9 @@ impl LinkedListHeapInner {
         let head = head.add(align_of::<MemoryRegion>());
         head.write(MemoryRegion {
             next: null_mut(),
-            len: len,
+            len,
         });
         Self { head }
-    }
-
-    unsafe fn pop(&mut self) -> *mut MemoryRegion {
-        let current = self.head;
-        self.head = (*self.head).next;
-        current
     }
 
     unsafe fn find_first_fit(&mut self, layout: Layout) -> *mut u8 {
