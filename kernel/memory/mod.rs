@@ -42,6 +42,5 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
 
     super::arch::memory::init(heap_start, &multiboot_info, multiboot_addr);
     heap::init(heap_start);
-
     log!("memory module init complete.");
 }

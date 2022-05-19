@@ -55,7 +55,6 @@ impl LinkedListHeapInner {
         let mut cur_ptr = self.head;
 
         loop {
-
             if cur_ptr.is_null() {
                 return null_mut();
             }
@@ -71,7 +70,14 @@ impl LinkedListHeapInner {
             let layout_size = front_pad + layout.size();
             let back_pad = current.len - layout_size;
 
-            log!("fp: {}, lsz: {}, laln: {}, bp: {}, o: {}", front_pad, layout_size, layout.align(), back_pad, raw_ptr.align_offset(layout.align()));
+            log!(
+                "fp: {}, lsz: {}, laln: {}, bp: {}, o: {}",
+                front_pad,
+                layout_size,
+                layout.align(),
+                back_pad,
+                raw_ptr.align_offset(layout.align())
+            );
             if layout_size > current.len || (back_pad > 0 && back_pad < size_of::<MemoryRegion>()) {
                 prev_ptr = cur_ptr;
                 cur_ptr = current.next;

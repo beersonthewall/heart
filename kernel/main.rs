@@ -1,5 +1,6 @@
 #![feature(allocator_api)]
 #![feature(default_alloc_error_handler)]
+#![feature(naked_functions)]
 #![feature(panic_info_message)]
 #![feature(ptr_to_from_bits)]
 #![no_std]
@@ -10,6 +11,9 @@
 mod macros;
 
 extern crate alloc;
+extern crate bit_field;
+#[macro_use]
+extern crate lazy_static;
 extern crate spin;
 
 #[cfg(target_arch = "x86_64")]
@@ -41,12 +45,13 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     // page align heap start
     let heap_start_physical = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
     memory::init(multiboot_ptr, heap_start_physical);
-    use alloc::vec::Vec;
 
+    use alloc::vec::Vec;
     // Test the linked_list_allocator by allocating a larger size than the biggest slab.
     let mut nums: Vec<usize> = Vec::with_capacity(1024);
     for i in 0..1024 {
         nums.push(i);
     }
-    log!("{:?}", nums);
+
+    arch::interrupt::init();
 }
