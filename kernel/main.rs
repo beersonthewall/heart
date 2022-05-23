@@ -1,4 +1,5 @@
 #![feature(allocator_api)]
+#![feature(asm_sym)]
 #![feature(default_alloc_error_handler)]
 #![feature(naked_functions)]
 #![feature(panic_info_message)]
