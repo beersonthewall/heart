@@ -25,17 +25,17 @@ lazy_static! {
         idt.set_handler(5, handler!(bound_range_handler));
         idt.set_handler(6, handler!(invalid_opcode_handler));
         idt.set_handler(7, handler!(device_not_available_handler));
-        idt.set_handler(8, handler!(double_fault_handler));
-        idt.set_handler(10, handler!(invalid_tss_handler));
-        idt.set_handler(11, handler!(segment_not_present_handler));
-        idt.set_handler(12, handler!(stack_handler));
-        idt.set_handler(13, handler!(general_protection_handler));
-        idt.set_handler(14, handler!(page_fault_handler));
+        idt.set_handler(8, handler_with_error_code!(double_fault_handler));
+        idt.set_handler(10, handler_with_error_code!(invalid_tss_handler));
+        idt.set_handler(11, handler_with_error_code!(segment_not_present_handler));
+        idt.set_handler(12, handler_with_error_code!(stack_handler));
+        idt.set_handler(13, handler_with_error_code!(general_protection_handler));
+        idt.set_handler(14, handler_with_error_code!(page_fault_handler));
         idt.set_handler(16, handler!(x87_floating_point_handler));
-        idt.set_handler(17, handler!(alignment_check_handler));
+        idt.set_handler(17, handler_with_error_code!(alignment_check_handler));
         idt.set_handler(18, handler!(machine_check_handler));
         idt.set_handler(19, handler!(simd_floating_point_handler));
-        idt.set_handler(21, handler!(control_protection_handler));
+        idt.set_handler(21, handler_with_error_code!(control_protection_handler));
         idt.set_handler(28, handler!(hypervisor_injection_handler));
         idt.set_handler(29, handler!(vmm_communication_handler));
         idt.set_handler(30, handler!(security_handler));
@@ -50,11 +50,6 @@ pub fn init() {
         asm!("int3", options(nomem, nostack));
     }
     log!("We made it back :)");
-    divide_by_zero();
-}
-
-fn divide_by_zero() {
-    unsafe {
-        asm!("mov dx, 0; div dx", out("ax") _, out("dx") _);
-    }
+    // Page Fault time :)
+    unsafe { *(0xdeadbeaf as *mut u64) = 42 };
 }
