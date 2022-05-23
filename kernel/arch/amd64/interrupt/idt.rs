@@ -3,17 +3,19 @@ use core::arch::asm;
 
 pub type InterruptHandlerFn = extern "C" fn() -> !;
 
+const IDT_SIZE: usize = 31;
+
 #[repr(C, packed)]
 struct DescriptorTablePointer {
     limit: u16,
     base: u64,
 }
 
-pub struct InterruptDescriptorTable([IDTEntry; 16]);
+pub struct InterruptDescriptorTable([IDTEntry; IDT_SIZE]);
 
 impl InterruptDescriptorTable {
     pub fn new() -> Self {
-        Self([IDTEntry::missing(); 16])
+        Self([IDTEntry::missing(); IDT_SIZE])
     }
 
     pub fn set_handler(&mut self, vector: usize, handler: InterruptHandlerFn) -> &mut EntryOptions {
