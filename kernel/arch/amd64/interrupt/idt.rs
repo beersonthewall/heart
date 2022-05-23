@@ -126,6 +126,5 @@ fn cs() -> u16 {
     unsafe {
         asm!(concat!("mov {0:x}, ", "cs"), out(reg) segment, options(nomem, nostack, preserves_flags));
     }
-    log!("segment: {:x}", segment);
     segment
 }
