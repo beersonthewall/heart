@@ -78,9 +78,14 @@ impl<'a> PageMapper<'a> {
             page.pdpt_offset(),
             page.pd_offset(),
         );
-        let pt = PageMapper::next_table(&mut pd[page.pd_offset()], pt_page, alloc);
 
+        let pt = PageMapper::next_table(&mut pd[page.pd_offset()], pt_page, alloc);
         let entry = &mut pt[page.pt_offset()];
+
+        if entry.is_used() {
+            return Err(PagingError::Unknown);
+        }
+
         entry.set_frame(frame, PTE_WRITE | PTE_PRESENT);
 
         Ok(())
