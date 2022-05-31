@@ -1,17 +1,21 @@
+mod apic;
 #[macro_use]
 mod handlers;
 mod idt;
 
 use core::arch::asm;
+use crate::arch::memory::page_mapper::PageMapper;
+use crate::memory::addr::VirtualAddress;
 use handlers::{
     alignment_check_handler, bound_range_handler, breakpoint_handler, control_protection_handler,
     debug_handler, device_not_available_handler, divide_by_zero_handler, double_fault_handler,
     general_protection_handler, hypervisor_injection_handler, invalid_opcode_handler,
     invalid_tss_handler, machine_check_handler, non_maskable_handler, overflow_handler,
     page_fault_handler, security_handler, segment_not_present_handler, simd_floating_point_handler,
-    stack_handler, vmm_communication_handler, x87_floating_point_handler,
+    stack_handler, vmm_communication_handler, x87_floating_point_handler, timer_handler, spurious_handler,
 };
 use idt::{InterruptDescriptorTable, InterruptHandlerFn};
+use pic8259::ChainedPics;
 use spin::mutex::Mutex;
 
 lazy_static! {
@@ -39,17 +43,31 @@ lazy_static! {
         idt.set_handler(28, handler!(hypervisor_injection_handler));
         idt.set_handler(29, handler!(vmm_communication_handler));
         idt.set_handler(30, handler!(security_handler));
+        idt.set_handler(32, isr!(timer_handler));
+        idt.set_handler(39, handler!(spurious_handler));
         idt
     };
 }
 
-pub fn init() {
-    IDT.load();
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
+pub static PICS: spin::Mutex<ChainedPics> = Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+pub fn init() {
+
+    IDT.load();
+    
     unsafe {
         asm!("int3", options(nomem, nostack));
     }
     log!("We made it back :)");
+
+    unsafe {
+        PICS.lock().initialize();
+        asm!("sti");
+    }
+
     // Page Fault time :)
-    unsafe { *(0xdeadbeaf as *mut u64) = 42 };
+    //    unsafe { *(0xdeadbeaf as *mut u64) = 42 };
 }

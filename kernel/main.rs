@@ -1,5 +1,6 @@
 #![feature(allocator_api)]
 #![feature(asm_sym)]
+#![feature(asm_const)]
 #![feature(default_alloc_error_handler)]
 #![feature(naked_functions)]
 #![feature(panic_info_message)]
@@ -15,6 +16,7 @@ extern crate alloc;
 extern crate bit_field;
 #[macro_use]
 extern crate lazy_static;
+extern crate pic8259;
 extern crate spin;
 
 #[cfg(target_arch = "x86_64")]
@@ -27,6 +29,7 @@ mod memory;
 mod multiboot;
 
 use self::arch::memory::PAGE_SIZE;
+use self::memory::addr::VirtualAddress;
 
 const KERNEL_BASE: usize = 0xFFFFFFFF80000000;
 
@@ -38,14 +41,12 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     }
 
     log!("Hello world! :)");
-    let kend_vaddr: usize;
-    unsafe {
-        kend_vaddr = &kernel_end as *const _ as usize;
-    }
+    let kend_vaddr: usize = unsafe { &kernel_end as *const _ as usize };
     let kend_phys_addr = kend_vaddr - KERNEL_BASE;
     // page align heap start
-    let heap_start_physical = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
-    memory::init(multiboot_ptr, heap_start_physical);
+    let bootstrap_frame_alloc_start = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
+    log!("kendvaddr: {:x}", kend_vaddr);
+    memory::init(multiboot_ptr, bootstrap_frame_alloc_start, kend_vaddr);
 
     use alloc::vec::Vec;
     // Test the linked_list_allocator by allocating a larger size than the biggest slab.

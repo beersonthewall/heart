@@ -10,6 +10,13 @@ pub struct ExceptionStackFrame {
     stack_segment: u64,
 }
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct InterruptStackFrame {
+    instruction_ptr: u64,
+    // TODO this is a stub
+}
+
 pub extern "C" fn divide_by_zero_handler(stack_frame: &ExceptionStackFrame) -> ! {
     log!("EXCEPTION: divide by zero\n{:?}", stack_frame);
     loop {}
@@ -118,6 +125,17 @@ pub extern "C" fn vmm_communication_handler(stack_frame: &ExceptionStackFrame) -
 pub extern "C" fn security_handler(stack_frame: &ExceptionStackFrame) -> ! {
     log!("EXCEPTION: security\n{:?}", stack_frame);
     loop {}
+}
+
+pub extern "C" fn timer_handler(stack_frame: &InterruptStackFrame) {
+    log!(".");
+    unsafe {
+        super::PICS.lock().notify_end_of_interrupt(32);
+    }
+}
+
+pub extern "C" fn spurious_handler(stack_fram: &InterruptStackFrame) {
+    log!("spurious");
 }
 
 macro_rules! handler {

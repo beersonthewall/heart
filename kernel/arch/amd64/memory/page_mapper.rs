@@ -200,4 +200,11 @@ impl<'a> KernelPageMapper<'a> {
             Err(PagingError::Unknown)
         }
     }
+
+    pub fn is_mapped(&mut self, page: Page) -> bool {
+        if let Some(ref mut page_mapper) = *self.inner.lock() {
+            return page_mapper.is_mapped(page);
+        }
+        false
+    }
 }

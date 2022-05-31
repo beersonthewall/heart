@@ -21,7 +21,7 @@ pub trait FrameAllocatorAPI {
     fn deallocate_frame(&mut self, frame: Frame);
 }
 
-pub fn init(multiboot_addr: usize, heap_start: usize) {
+pub fn init(multiboot_addr: usize, bootstrap_frame_alloc_start: usize, heap_start_virtual: usize) {
     let multiboot_info = MultibootInfo::new(multiboot_addr);
     log!("flags: 0x{:x}", multiboot_info.flags());
     log!("mem_lower: 0x{:x}", multiboot_info.mem_lower());
@@ -40,7 +40,7 @@ pub fn init(multiboot_addr: usize, heap_start: usize) {
         );
     }
 
-    super::arch::memory::init(heap_start, &multiboot_info, multiboot_addr);
-    heap::init(heap_start);
+    super::arch::memory::init(bootstrap_frame_alloc_start, &multiboot_info, multiboot_addr);
+    heap::init(heap_start_virtual);
     log!("memory module init complete.");
 }

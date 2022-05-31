@@ -3,7 +3,7 @@ use core::arch::asm;
 
 pub type InterruptHandlerFn = extern "C" fn() -> !;
 
-const IDT_SIZE: usize = 31;
+const IDT_SIZE: usize = 40;
 
 #[repr(C, packed)]
 struct DescriptorTablePointer {

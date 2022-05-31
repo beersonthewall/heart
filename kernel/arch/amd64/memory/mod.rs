@@ -17,9 +17,9 @@ pub const PAGE_SIZE: usize = 4096;
 static mut FRAME_ALLOCATOR: FrameAllocator = FrameAllocator::new();
 static mut KERNEL_PAGE_TABLE: KernelPageMapper = KernelPageMapper::new();
 
-pub fn init(heap_start: usize, multiboot_info: &MultibootInfo, multiboot_addr: usize) {
+pub fn init(bootstrap_frame_alloc_start_physical: usize, multiboot_info: &MultibootInfo, multiboot_addr: usize) {
     let mut bootstrap_frame_allocator =
-        BootstrapFrameAllocator::new(PhysicalAddress::new(heap_start));
+        BootstrapFrameAllocator::new(PhysicalAddress::new(bootstrap_frame_alloc_start_physical));
     let mut page_mapper = PageMapper::init_kernel_table();
 
     test_page_mapper(
@@ -39,12 +39,26 @@ pub fn map(start: VirtualAddress, length: usize) -> Result<(), PagingError> {
     assert!(length % PAGE_SIZE == 0);
     let num_frames = length / PAGE_SIZE;
 
-    for _ in 0..num_frames {
-        let page = Page::from_virtual_address(start);
+    for i in 0..num_frames {
+        let virtual_address = VirtualAddress::new(start.0 + (i * PAGE_SIZE));
+        let page = Page::from_virtual_address(virtual_address);
         unsafe {
             let frame = FRAME_ALLOCATOR.allocate_frame().unwrap();
+            log!("map 0x{:x} to 0x{:x}", page.virtual_address().0, frame.physical_address().0);
+
+            if KERNEL_PAGE_TABLE.is_mapped(page) {
+                continue;
+            }
+
             KERNEL_PAGE_TABLE.map(page, frame, &mut FRAME_ALLOCATOR)?;
         }
+    }
+    Ok(())
+}
+
+pub fn map_frame(page: Page, frame: Frame) -> Result<(), PagingError> {
+    unsafe {
+        KERNEL_PAGE_TABLE.map(page, frame, &mut FRAME_ALLOCATOR)?;
     }
     Ok(())
 }
@@ -55,7 +69,8 @@ fn test_page_mapper(
     multiboot_addr: usize,
 ) {
     let test_frame = Frame {
-        frame_number: 0x4e20000 / PAGE_SIZE,
+        // 0x4e20000
+        frame_number: 0x0000_0000_F000_0000 / PAGE_SIZE,
     };
     let test_page = Page::from_virtual_address(VirtualAddress::new(0x0000_1FFF_0000_0000));
 
