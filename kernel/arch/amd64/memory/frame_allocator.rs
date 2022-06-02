@@ -170,6 +170,9 @@ impl FrameAllocatorAPI for FrameAllocatorInner<'_> {
             }
         }
 
+        self.free_frame_offset = free_frame_offset;
+        self.free_frame_byte_offset = free_frame_byte_offset;
+
         Some(frame)
     }
 
