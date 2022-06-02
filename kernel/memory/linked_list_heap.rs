@@ -48,75 +48,99 @@ impl LinkedListHeapInner {
         Self { head }
     }
 
-    unsafe fn find_first_fit(&mut self, layout: Layout) -> *mut u8 {
-        self.debug_heap();
+    unsafe fn remove_region(&mut self,
+                     front_pad: usize,
+                     back_pad: usize,
+                     layout: Layout,
+                     prev: *mut MemoryRegion,
+                     current: *mut MemoryRegion) -> *mut u8 {
 
-        let mut prev_ptr = null_mut();
-        let mut cur_ptr = self.head;
+        let c = current as *mut u8;
 
-        loop {
-            if cur_ptr.is_null() {
-                return null_mut();
-            }
-            let current = cur_ptr.read();
+        if front_pad > 0 && back_pad > 0 {
+            prev.write(MemoryRegion {
+                next: current,
+                len: (*prev).len,
+            });
 
-            let raw_ptr = cur_ptr as *mut u8;
-            let front_pad = if raw_ptr.align_offset(layout.align()) < size_of::<MemoryRegion>() {
-                raw_ptr.align_offset(layout.align()) + layout.align()
-            } else {
-                raw_ptr.align_offset(layout.align())
-            };
+            let back_region = c.offset((front_pad + layout.size()) as isize) as *mut MemoryRegion;
+            back_region.write(MemoryRegion {
+                next: (*current).next,
+                len: back_pad,
+            });
 
-            let layout_size = front_pad + layout.size();
-            let back_pad = current.len - layout_size;
+            current.write(MemoryRegion {
+                next: back_region,
+                len: front_pad,
+            });
 
-            log!(
-                "fp: {}, lsz: {}, laln: {}, bp: {}, o: {}",
-                front_pad,
-                layout_size,
-                layout.align(),
-                back_pad,
-                raw_ptr.align_offset(layout.align())
-            );
-            if layout_size > current.len || (back_pad > 0 && back_pad < size_of::<MemoryRegion>()) {
-                prev_ptr = cur_ptr;
-                cur_ptr = current.next;
-                continue;
-            }
-
-            let next_region = if back_pad > 0 {
-                let back_region = cur_ptr.add(layout_size);
-                back_region.write(MemoryRegion {
-                    next: current.next,
-                    len: back_pad,
-                });
-
-                back_region
-            } else {
-                current.next
-            };
-
-            if front_pad > 0 {
-                cur_ptr.write(MemoryRegion {
-                    next: next_region,
-                    len: front_pad,
-                });
-            } else if prev_ptr.is_null() {
-                self.head = next_region;
-            } else {
-                (*prev_ptr).next = next_region;
-            }
-
-            // [p1, p2] [c1, c2] [n1, n2]
-            // null [c1, c2] null
-            // null [c1, c2] [n1, n2]
-            // [p1, p2] [c1, c2] null
-
-            // TODO Merge
-
-            self.debug_heap();
-            return cur_ptr.add(front_pad) as *mut u8;
+        } else if front_pad > 0 {
+            current.write(MemoryRegion {
+                next: (*current).next,
+                len: front_pad,
+            });
         }
+        else if back_pad > 0 {
+            let back_region = c.offset((front_pad + layout.size()) as isize) as *mut MemoryRegion;
+            back_region.write(MemoryRegion {
+                next: (*current).next,
+                len: back_pad,
+            });
+
+            prev.write(MemoryRegion {
+                next: back_region,
+                len: (*prev).len,
+            });
+        } else {
+            prev.write(MemoryRegion {
+                next: (*current).next,
+                len: (*prev).len,
+            });
+        }
+
+        c.offset(front_pad as isize)
+    }
+
+    unsafe fn fit_layout_to_region(layout: Layout, region: *mut MemoryRegion) -> Option<(usize, usize)> {
+
+        let alignment = core::cmp::max(layout.align(), core::mem::align_of::<MemoryRegion>());
+        let size = core::cmp::max(layout.size(), layout.align());
+
+        let r = region as *mut u8;
+        let addr = r.offset(r.align_offset(alignment) as isize);
+
+        let front_pad = if addr == r { 0 } else { addr.to_bits() - r.to_bits() /* todo make min size == memoryregion? */ };
+        let back_pad = (*region).len - (layout.size() + front_pad);
+
+        let r = region.read();
+        if layout.size() > r.len {
+            return None;
+        }
+
+        if back_pad > 0 && back_pad < size_of::<MemoryRegion>() {
+            return None;
+        }
+
+        return Some((front_pad, back_pad));
+    }
+
+    unsafe fn find_first_fit(&mut self, layout: Layout) -> *mut u8 {
+        let mut prev = null_mut();
+        let mut current = self.head;
+        
+        while !current.is_null() {
+            match Self::fit_layout_to_region(layout, current) {
+                Some((front_padding, back_padding)) => {
+                    return self.remove_region(front_padding, back_padding, layout, prev, current);
+                },
+                None => {
+                    prev = current;
+                    current = (*current).next;
+                },
+            }
+        }
+
+        null_mut()
     }
 
     unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
@@ -135,6 +159,7 @@ impl LinkedListHeapInner {
     }
 
     unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        // TODO increase layout size if it does not meet the minimum size to match what we do in alloc()
         if self.head.is_null() {
             let ptr = ptr as *mut MemoryRegion;
             let node = &mut *ptr;
