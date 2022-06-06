@@ -56,35 +56,10 @@ impl<'a> FrameAllocatorInner<'a> {
         info: &MultibootInfo,
         page_mapper: &mut PageMapper,
     ) -> Self {
-        let memory_sz = detect_memory_size(info);
+        let memory_sz = Self::detect_memory_size(info);
         log!("memory size: 0x{:x}", memory_sz);
 
-        let bitmap_sz = (memory_sz / PAGE_SIZE) / 8;
-        let frames = bitmap_sz / PAGE_SIZE;
-        let bitmap_start_frame = bootstrap_frame_alloc.allocate_frame().unwrap();
-        log!(
-            "Creating frame alloc bitmap, allocating {} frames.",
-            frames + 1
-        );
-
-        for _ in 1..frames {
-            let frame = bootstrap_frame_alloc.allocate_frame().unwrap();
-
-            // The bootstrap frame allcator starts at kernel end which may or may not be identity
-            // mapped in start.S. We map a single 2MB page which is supposed to cover the kernel,
-            // but will cover the frames allocated by the bootstrap allocator if the kernel < 2MB.
-            let page = Page::from_virtual_address(VirtualAddress::new(frame.physical_address().0));
-            if !page_mapper.is_mapped(page) {
-                page_mapper
-                    .map(page, frame, &mut bootstrap_frame_alloc)
-                    .expect("Failure mapping page in frame allocator creation.");
-            }
-        }
-
-        let ptr = bitmap_start_frame.physical_address().0 as *mut u8;
-        // FIXME need to map ptr, might be id mapped right now though? just because kernel < 2MB and
-        // we mapped 2 MB in start.S (at least for amd64 arch).
-        let bitmap = unsafe { core::slice::from_raw_parts_mut(ptr, bitmap_sz) };
+        let bitmap = Self::initialize_bitmap(&mut bootstrap_frame_alloc, page_mapper, memory_sz);
 
         // FIXME: detect & mark regions not in the memory map as reserved.
         // We won't necessarily have all existing memory in the map.
@@ -148,6 +123,38 @@ impl<'a> FrameAllocatorInner<'a> {
         memory_sz
     }
 
+    fn initialize_bitmap(
+        bootstrap_frame_alloc: &mut BootstrapFrameAllocator,
+        page_mapper: &mut PageMapper,
+        memory_sz: usize,
+    ) -> &'static mut [u8] {
+        let bitmap_sz = (memory_sz / PAGE_SIZE) / 8;
+        let frames = bitmap_sz / PAGE_SIZE;
+        let bitmap_start_frame = bootstrap_frame_alloc.allocate_frame().unwrap();
+        log!(
+            "Creating frame alloc bitmap, allocating {} frames.",
+            frames + 1
+        );
+
+        for _ in 1..frames {
+            let frame = bootstrap_frame_alloc.allocate_frame().unwrap();
+
+            // The bootstrap frame allocator starts at kernel end which may or may not be identity
+            // mapped in start.S. We map a single 2MB page which is supposed to cover the kernel,
+            // but will cover the frames allocated by the bootstrap allocator if the kernel < 2MB.
+            let page = Page::from_virtual_address(VirtualAddress::new(frame.physical_address().0));
+            if !page_mapper.is_mapped(page) {
+                page_mapper
+                    .map(page, frame, bootstrap_frame_alloc)
+                    .expect("Failure mapping page in frame allocator creation.");
+            }
+        }
+
+        let ptr = bitmap_start_frame.physical_address().0 as *mut u8;
+        // FIXME need to map ptr, might be id mapped right now though? just because kernel < 2MB and
+        // we mapped 2 MB in start.S (at least for amd64 arch).
+        unsafe { core::slice::from_raw_parts_mut(ptr, bitmap_sz) }
+    }
 }
 
 impl FrameAllocatorAPI for FrameAllocatorInner<'_> {
