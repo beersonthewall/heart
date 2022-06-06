@@ -56,16 +56,11 @@ impl<'a> FrameAllocatorInner<'a> {
         info: &MultibootInfo,
         page_mapper: &mut PageMapper,
     ) -> Self {
-        let mut total_bytes_of_memory: usize = 0;
-        for entry in info.mmap_iter() {
-            if (entry.length() + entry.base_addr()) as usize > total_bytes_of_memory {
-                total_bytes_of_memory = (entry.length() + entry.base_addr()) as usize;
-            }
-        }
+        let memory_sz = detect_memory_size(info);
 
-        log!("total bytes: 0x{:x}", total_bytes_of_memory);
+        log!("memory size: 0x{:x}", memory_sz);
 
-        let bitmap_sz = (total_bytes_of_memory / PAGE_SIZE) / 8;
+        let bitmap_sz = (memory_sz / PAGE_SIZE) / 8;
         let frames = bitmap_sz / PAGE_SIZE;
         let bitmap_start_frame = bootstrap_frame_alloc.allocate_frame().unwrap();
         log!(
@@ -210,4 +205,14 @@ impl<'a> FrameAllocatorAPI for FrameAllocator<'a> {
             fa.deallocate_frame(frame);
         }
     }
+}
+
+fn detect_memory_size(info: &MultibootInfo) -> usize {
+    let mut memory_sz: usize = 0;
+    for entry in info.mmap_iter() {
+        if (entry.length() + entry.base_addr()) as usize > memory_sz {
+            memory_sz = (entry.length() + entry.base_addr()) as usize;
+        }
+    }
+    memory_sz
 }
