@@ -57,7 +57,6 @@ impl<'a> FrameAllocatorInner<'a> {
         page_mapper: &mut PageMapper,
     ) -> Self {
         let memory_sz = detect_memory_size(info);
-
         log!("memory size: 0x{:x}", memory_sz);
 
         let bitmap_sz = (memory_sz / PAGE_SIZE) / 8;
@@ -138,6 +137,17 @@ impl<'a> FrameAllocatorInner<'a> {
 
         (offset, byte_offset)
     }
+
+    fn detect_memory_size(info: &MultibootInfo) -> usize {
+        let mut memory_sz: usize = 0;
+        for entry in info.mmap_iter() {
+            if (entry.length() + entry.base_addr()) as usize > memory_sz {
+                memory_sz = (entry.length() + entry.base_addr()) as usize;
+            }
+        }
+        memory_sz
+    }
+
 }
 
 impl FrameAllocatorAPI for FrameAllocatorInner<'_> {
@@ -205,14 +215,4 @@ impl<'a> FrameAllocatorAPI for FrameAllocator<'a> {
             fa.deallocate_frame(frame);
         }
     }
-}
-
-fn detect_memory_size(info: &MultibootInfo) -> usize {
-    let mut memory_sz: usize = 0;
-    for entry in info.mmap_iter() {
-        if (entry.length() + entry.base_addr()) as usize > memory_sz {
-            memory_sz = (entry.length() + entry.base_addr()) as usize;
-        }
-    }
-    memory_sz
 }
