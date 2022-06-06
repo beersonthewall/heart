@@ -58,42 +58,8 @@ impl<'a> FrameAllocatorInner<'a> {
     ) -> Self {
         let memory_sz = Self::detect_memory_size(info);
         log!("memory size: 0x{:x}", memory_sz);
-
         let bitmap = Self::initialize_bitmap(&mut bootstrap_frame_alloc, page_mapper, memory_sz);
-
-        // FIXME: detect & mark regions not in the memory map as reserved.
-        // We won't necessarily have all existing memory in the map.
-        for entry in info.mmap_iter() {
-            if let MMapEntryType::Available = entry.entry_type() {
-                continue;
-            }
-
-            let base_addr: usize = entry.base_addr() as usize;
-            let end_addr: usize = entry.length() as usize + base_addr;
-
-            // We only have granularity to track PAGE_SIZE chunks, so any unavailable
-            // ranges that aren't page-aligned will have some extra space marked as
-            // unavailable.
-            let base_addr = base_addr - (base_addr % PAGE_SIZE);
-            let end_addr = end_addr - (end_addr % PAGE_SIZE);
-
-            log!("base_addr: 0x{:x}, end_addr: 0x{:x}", base_addr, end_addr);
-
-            assert!(base_addr % PAGE_SIZE == 0);
-            assert!(end_addr % PAGE_SIZE == 0);
-            for addr in (base_addr..end_addr).step_by(PAGE_SIZE) {
-                let (bitmap_offset, byte_offset) = Self::offsets(addr);
-                bitmap[bitmap_offset as usize - 1] |= byte_offset;
-            }
-        }
-
-        // Mark frames allocated by bootstrap frame allocator as used.
-        for frame_addr in
-            (bootstrap_frame_alloc.start().0..bootstrap_frame_alloc.free().0).step_by(PAGE_SIZE)
-        {
-            let (bitmap_offset, byte_offset) = Self::offsets(frame_addr);
-            bitmap[bitmap_offset as usize - 1] |= byte_offset;
-        }
+        Self::mark_used_frames(bitmap, info, &mut bootstrap_frame_alloc);
 
         let (free_frame_offset, free_frame_byte_offset) =
             Self::offsets(bootstrap_frame_alloc.free().0);
@@ -154,6 +120,46 @@ impl<'a> FrameAllocatorInner<'a> {
         // FIXME need to map ptr, might be id mapped right now though? just because kernel < 2MB and
         // we mapped 2 MB in start.S (at least for amd64 arch).
         unsafe { core::slice::from_raw_parts_mut(ptr, bitmap_sz) }
+    }
+
+    fn mark_used_frames(
+        bitmap: &mut [u8],
+        info: &MultibootInfo,
+        bootstrap_frame_alloc: &mut BootstrapFrameAllocator,
+    ) {
+        // FIXME: detect & mark regions not in the memory map as reserved.
+        // We won't necessarily have all existing memory in the map.
+        for entry in info.mmap_iter() {
+            if let MMapEntryType::Available = entry.entry_type() {
+                continue;
+            }
+
+            let base_addr: usize = entry.base_addr() as usize;
+            let end_addr: usize = entry.length() as usize + base_addr;
+
+            // We only have granularity to track PAGE_SIZE chunks, so any unavailable
+            // ranges that aren't page-aligned will have some extra space marked as
+            // unavailable.
+            let base_addr = base_addr - (base_addr % PAGE_SIZE);
+            let end_addr = end_addr - (end_addr % PAGE_SIZE);
+
+            log!("base_addr: 0x{:x}, end_addr: 0x{:x}", base_addr, end_addr);
+
+            assert!(base_addr % PAGE_SIZE == 0);
+            assert!(end_addr % PAGE_SIZE == 0);
+            for addr in (base_addr..end_addr).step_by(PAGE_SIZE) {
+                let (bitmap_offset, byte_offset) = Self::offsets(addr);
+                bitmap[bitmap_offset as usize - 1] |= byte_offset;
+            }
+        }
+
+        // Mark frames allocated by bootstrap frame allocator as used.
+        for frame_addr in
+            (bootstrap_frame_alloc.start().0..bootstrap_frame_alloc.free().0).step_by(PAGE_SIZE)
+        {
+            let (bitmap_offset, byte_offset) = Self::offsets(frame_addr);
+            bitmap[bitmap_offset as usize - 1] |= byte_offset;
+        }
     }
 }
 
