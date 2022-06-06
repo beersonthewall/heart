@@ -170,6 +170,8 @@ impl FrameAllocatorAPI for FrameAllocatorInner<'_> {
             }
         }
 
+        // TODO figure out why we're not stepping through the free_frame_byte_offset like expected.
+        // currently it's always 1.
         self.free_frame_offset = free_frame_offset;
         self.free_frame_byte_offset = free_frame_byte_offset;
 
