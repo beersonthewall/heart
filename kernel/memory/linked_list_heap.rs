@@ -48,13 +48,14 @@ impl LinkedListHeapInner {
         Self { head }
     }
 
-    unsafe fn remove_region(&mut self,
-                     front_pad: usize,
-                     back_pad: usize,
-                     layout: Layout,
-                     prev: *mut MemoryRegion,
-                     current: *mut MemoryRegion) -> *mut u8 {
-
+    unsafe fn remove_region(
+        &mut self,
+        front_pad: usize,
+        back_pad: usize,
+        layout: Layout,
+        prev: *mut MemoryRegion,
+        current: *mut MemoryRegion,
+    ) -> *mut u8 {
         let c = current as *mut u8;
 
         if front_pad > 0 && back_pad > 0 {
@@ -73,14 +74,12 @@ impl LinkedListHeapInner {
                 next: back_region,
                 len: front_pad,
             });
-
         } else if front_pad > 0 {
             current.write(MemoryRegion {
                 next: (*current).next,
                 len: front_pad,
             });
-        }
-        else if back_pad > 0 {
+        } else if back_pad > 0 {
             let back_region = c.offset((front_pad + layout.size()) as isize) as *mut MemoryRegion;
             back_region.write(MemoryRegion {
                 next: (*current).next,
@@ -101,15 +100,21 @@ impl LinkedListHeapInner {
         c.offset(front_pad as isize)
     }
 
-    unsafe fn fit_layout_to_region(layout: Layout, region: *mut MemoryRegion) -> Option<(usize, usize)> {
-
+    unsafe fn fit_layout_to_region(
+        layout: Layout,
+        region: *mut MemoryRegion,
+    ) -> Option<(usize, usize)> {
         let alignment = core::cmp::max(layout.align(), core::mem::align_of::<MemoryRegion>());
         let size = core::cmp::max(layout.size(), layout.align());
 
         let r = region as *mut u8;
         let addr = r.offset(r.align_offset(alignment) as isize);
 
-        let front_pad = if addr == r { 0 } else { addr.to_bits() - r.to_bits() /* todo make min size == memoryregion? */ };
+        let front_pad = if addr == r {
+            0
+        } else {
+            addr.to_bits() - r.to_bits() /* todo make min size == memoryregion? */
+        };
         let back_pad = (*region).len - (layout.size() + front_pad);
 
         let r = region.read();
@@ -127,16 +132,16 @@ impl LinkedListHeapInner {
     unsafe fn find_first_fit(&mut self, layout: Layout) -> *mut u8 {
         let mut prev = null_mut();
         let mut current = self.head;
-        
+
         while !current.is_null() {
             match Self::fit_layout_to_region(layout, current) {
                 Some((front_padding, back_padding)) => {
                     return self.remove_region(front_padding, back_padding, layout, prev, current);
-                },
+                }
                 None => {
                     prev = current;
                     current = (*current).next;
-                },
+                }
             }
         }
 

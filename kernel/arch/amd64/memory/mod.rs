@@ -17,7 +17,11 @@ pub const PAGE_SIZE: usize = 4096;
 static mut FRAME_ALLOCATOR: FrameAllocator = FrameAllocator::new();
 static mut KERNEL_PAGE_TABLE: KernelPageMapper = KernelPageMapper::new();
 
-pub fn init(bootstrap_frame_alloc_start_physical: usize, multiboot_info: &MultibootInfo, multiboot_addr: usize) {
+pub fn init(
+    bootstrap_frame_alloc_start_physical: usize,
+    multiboot_info: &MultibootInfo,
+    multiboot_addr: usize,
+) {
     let mut bootstrap_frame_allocator =
         BootstrapFrameAllocator::new(PhysicalAddress::new(bootstrap_frame_alloc_start_physical));
     let mut page_mapper = PageMapper::init_kernel_table();
@@ -44,7 +48,11 @@ pub fn map(start: VirtualAddress, length: usize) -> Result<(), PagingError> {
         let page = Page::from_virtual_address(virtual_address);
         unsafe {
             let frame = FRAME_ALLOCATOR.allocate_frame().unwrap();
-            log!("map 0x{:x} to 0x{:x}", page.virtual_address().0, frame.physical_address().0);
+            log!(
+                "map 0x{:x} to 0x{:x}",
+                page.virtual_address().0,
+                frame.physical_address().0
+            );
 
             if KERNEL_PAGE_TABLE.is_mapped(page) {
                 continue;

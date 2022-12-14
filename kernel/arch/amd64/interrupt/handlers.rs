@@ -58,32 +58,62 @@ pub extern "C" fn device_not_available_handler(stack_frame: &ExceptionStackFrame
 
 pub extern "C" fn double_fault_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
     // Error code should always be zero.
-    log!("EXCEPTION: double fault\n{:?}\nerror_code: {}", stack_frame, error_code);
+    log!(
+        "EXCEPTION: double fault\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
 pub extern "C" fn invalid_tss_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: invalid tss\n{:?}\nerror_code: {}", stack_frame, error_code);
+    log!(
+        "EXCEPTION: invalid tss\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
-pub extern "C" fn segment_not_present_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: segment not present\n{:?}\nerror_code: {}", stack_frame, error_code);
+pub extern "C" fn segment_not_present_handler(
+    stack_frame: &ExceptionStackFrame,
+    error_code: u64,
+) -> ! {
+    log!(
+        "EXCEPTION: segment not present\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
 pub extern "C" fn stack_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: stack\n{:?}\nerror_code: {}", stack_frame, error_code);
+    log!(
+        "EXCEPTION: stack\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
-pub extern "C" fn general_protection_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: general protection\n{:?}\nerror_code: {}", stack_frame, error_code);
+pub extern "C" fn general_protection_handler(
+    stack_frame: &ExceptionStackFrame,
+    error_code: u64,
+) -> ! {
+    log!(
+        "EXCEPTION: general protection\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
 pub extern "C" fn page_fault_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: page fault\n{:?}\nerror_code: {}", stack_frame, error_code);
+    log!(
+        "EXCEPTION: page fault\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
@@ -93,7 +123,11 @@ pub extern "C" fn x87_floating_point_handler(stack_frame: &ExceptionStackFrame) 
 }
 
 pub extern "C" fn alignment_check_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: alignment check\n{:?}\nerror_code: {}", stack_frame, error_code);
+    log!(
+        "EXCEPTION: alignment check\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 
@@ -107,8 +141,15 @@ pub extern "C" fn simd_floating_point_handler(stack_frame: &ExceptionStackFrame)
     loop {}
 }
 
-pub extern "C" fn control_protection_handler(stack_frame: &ExceptionStackFrame, error_code: u64) -> ! {
-    log!("EXCEPTION: control protection\n{:?}\nerror_code: {}", stack_frame, error_code);
+pub extern "C" fn control_protection_handler(
+    stack_frame: &ExceptionStackFrame,
+    error_code: u64,
+) -> ! {
+    log!(
+        "EXCEPTION: control protection\n{:?}\nerror_code: {}",
+        stack_frame,
+        error_code
+    );
     loop {}
 }
 

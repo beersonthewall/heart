@@ -40,11 +40,19 @@ pub fn init_boot_apic() {
      * APIC registers are aligned to 16-byte offsets and must be accessed using naturally-aligned
      * DWORD size read and writes. All other accesses cause undefined behavior.
      */
-    
-    let spurious = APICRegister::read(APICRegister::SpuriousInterruptVector, apic_base_address);
-    APICRegister::write(APICRegister::SpuriousInterruptVector, apic_base_address, spurious | 1 << 8 | 32);
 
-    APICRegister::write(APICRegister::TimerDivideConfiguration, apic_base_address, 0x3);
+    let spurious = APICRegister::read(APICRegister::SpuriousInterruptVector, apic_base_address);
+    APICRegister::write(
+        APICRegister::SpuriousInterruptVector,
+        apic_base_address,
+        spurious | 1 << 8 | 32,
+    );
+
+    APICRegister::write(
+        APICRegister::TimerDivideConfiguration,
+        apic_base_address,
+        0x3,
+    );
 
     pit_prepare_sleep(1000);
 
@@ -53,11 +61,18 @@ pub fn init_boot_apic() {
 
     pit_perform_sleep();
 
-    let ticks_in_10_ms = init - APICRegister::read(APICRegister::TimerInitialCount, apic_base_address);
+    let ticks_in_10_ms =
+        init - APICRegister::read(APICRegister::TimerInitialCount, apic_base_address);
 
-    APICRegister::write(APICRegister::TimerLVTEntry, apic_base_address, (1 << 16) | 32);
+    APICRegister::write(
+        APICRegister::TimerLVTEntry,
+        apic_base_address,
+        (1 << 16) | 32,
+    );
 
-    unsafe { asm!("sti"); }
+    unsafe {
+        asm!("sti");
+    }
 }
 
 enum APICRegister {
@@ -160,8 +175,7 @@ fn read_apic_msr() -> usize {
 }
 
 fn write_apic_msr(value: usize) {
-    unsafe {
-    }
+    unsafe {}
 }
 
 fn apic_enabled() -> bool {
@@ -173,10 +187,6 @@ fn apic_enabled() -> bool {
     edx.get_bit(9)
 }
 
-fn pit_prepare_sleep(_ms: u32) {
-    
-}
+fn pit_prepare_sleep(_ms: u32) {}
 
-fn pit_perform_sleep() {
-
-}
+fn pit_perform_sleep() {}
