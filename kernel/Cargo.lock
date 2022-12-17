@@ -19,10 +19,15 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "bit_field",
+ "kernel_api",
  "lazy_static",
  "pic8259",
  "spin 0.9.3",
 ]
+
+[[package]]
+name = "kernel_api"
+version = "0.1.0"
 
 [[package]]
 name = "lazy_static"

@@ -17,6 +17,7 @@ extern crate alloc;
 extern crate bit_field;
 extern crate pic8259;
 extern crate spin;
+extern crate kernel_api;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "arch/amd64/mod.rs"]

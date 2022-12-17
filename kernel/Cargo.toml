@@ -8,6 +8,7 @@ path = "main.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
+kernel_api = { path = "../kernel_api" }
 bit_field = "0.10.1"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
