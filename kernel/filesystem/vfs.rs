@@ -1,7 +1,8 @@
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::rc::Rc;
+use alloc::string::{String, ToString};
+use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
-use lazy_static::__Deref;
 use core::cell::RefCell;
 
 use super::custody::Custody;
@@ -9,19 +10,16 @@ use super::error::FileSystemErr;
 use super::FileSystem;
 use super::path::Path;
 use super::inode::{InodeIdentifier, FileSystemIndex, Inode};
+use super::file::{FileDescriptor, OpenFileDescription};
 
 pub struct VirtualFileSystem {
     root_inode: InodeIdentifier,
     filesystems: Vec<Box<dyn FileSystem>>,
     // FIXME: We don't have the concept of a 'process' yet, so things that are typically
     // per process like open file descriptors and 'working directory' etc. go here.
-    open_fd: Vec<FileDescriptor>,
+    open_fd: BTreeMap<FileDescriptor, OpenFileDescription>,
     working_directory: RefCell<Box<Custody>>,
-}
-
-pub struct FileDescriptor {
-    fd: u64,
-    inode_id: InodeIdentifier,
+    next_fd: usize,
 }
 
 impl VirtualFileSystem {
@@ -31,8 +29,9 @@ impl VirtualFileSystem {
         Self {
 	    root_inode,
 	    filesystems: Vec::new(),
-	    open_fd: Vec::new(),
-	    working_directory: Custody::new(root_inode)
+	    open_fd: BTreeMap::new(),
+	    working_directory: Custody::new(root_inode),
+	    next_fd: 0,
 	}
     }
 
@@ -40,25 +39,62 @@ impl VirtualFileSystem {
 	
     }
 
-    pub fn open(&mut self, path: String) -> Result<FileDescriptor, FileSystemErr> {
-	/*
-	Steps:
+    pub fn read(&mut self) {
 
-	1) Parse path
-	2) Follow path down from root inode, creating custodies to track parent-child relationship
-	3) Create File descriptor and add it to self.open_fd
-	4) return
-	 */
-	let custody = self.resolve_path(path);
-	Ok(FileDescriptor { fd: 1, inode_id: self.root_inode })
+    }
+
+    /// [write() spec link](https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html)
+    pub fn write(&mut self, fd: FileDescriptor, bytes: &[u8]) -> Result<(), FileSystemErr> {
+	use kernel_api::headers::fcntl::{O_APPEND, O_RDONLY, O_RDWR, O_WRONLY};
+	let open_file_description = match self.open_fd.get_mut(&fd) {
+	    None => return Err(FileSystemErr::EBadF),
+	    Some(metadata) => metadata,
+	};
+
+	// If the file is not open for writing return EBADF
+	if open_file_description.has_flags(O_RDONLY) || !open_file_description.has_flags(O_RDWR | O_WRONLY) {
+	    return Err(FileSystemErr::EBadF)
+	}
+
+	if open_file_description.has_flags(kernel_api::headers::fcntl::O_APPEND) {
+	    // Can't call fetch_inode() because it takes an immutable ref and we can have a &mut self and &self
+	    // at the same time.
+	    let file_size = match self.filesystems.get(fd.inode_id().filesystem_index() as usize) {
+		None => return Err(FileSystemErr::FileNotFound),
+		Some(filesystem) => {
+		    match filesystem.inode(fd.inode_id()) {
+			None => return Err(FileSystemErr::FileNotFound),
+			Some(inode) => inode.metadata().size(),
+		    }
+		}
+	    };
+	    // O_APPEND moves cursor to the end.
+	    open_file_description.set_offset(file_size - 1);
+	}
+
+	match self.filesystems.get_mut(fd.inode_id().filesystem_index()) {
+	    None => Err(FileSystemErr::FileNotFound),
+	    Some(fs) => fs.write(fd, bytes, open_file_description),
+	}
+    }
+
+    pub fn open(&mut self, path: String) -> Result<FileDescriptor, FileSystemErr> {
+	let custody = self.resolve_path(path)?;
+
+	// Need to store inode id in tmp variable for compiler to figure out
+	// that it can copy the resulting inode id and not care that
+	// the custody gets dropped right after we return.
+	let inode_id = custody.borrow().as_ref().inode();
+	let fd = FileDescriptor::new(self.next_fd, inode_id);
+	self.open_fd.insert(fd, OpenFileDescription::new());
+	Ok(fd)
     }
 
     /// Mount the provided filesystem as the root filesystem.
     pub fn mount_root(&mut self, mut filesystem: Box<dyn FileSystem>) -> Result<(), FileSystemErr>
     {
 	let root_inode_id = filesystem.root_inode_id();
-	// We don't run on 32bit systems so converting usize -> u64 should be okay.
-	let fs_index: FileSystemIndex = self.filesystems.len() as u64;
+	let fs_index: FileSystemIndex = self.filesystems.len();
 	filesystem.set_fs_index(fs_index);
 	self.root_inode = root_inode_id;
 	self.filesystems.push(filesystem);
@@ -109,12 +145,33 @@ impl VirtualFileSystem {
 	Ok(parent)
     }
 
-    fn fetch_inode(&self, inode_id: InodeIdentifier) -> Option<&Box<dyn Inode>> {
+    fn fetch_inode(&self, inode_id: InodeIdentifier) -> Option<Rc<Box<dyn Inode>>> {
 	match self.filesystems.get(inode_id.filesystem_index() as usize) {
 	    None => None,
 	    Some(filesystem) => {
 		filesystem.inode(inode_id)
 	    }
+	}
+    }
+
+    /// Create an inode in the given filesystem. Currently assumes only the last path component
+    /// needs to be created (which might be a mistake).
+    pub fn make_inode(&mut self, path: String, mode: u32) -> Result<(), FileSystemErr> {
+	let path_len = path.len().clone();
+	let path = Path::new(path);
+
+	let len = match path.components().last() {
+	    None => 0,
+	    Some(segment) => path_len - segment.len(),
+	};
+	let custody = match self.resolve_path(path.get_raw()[0..len].to_string()) {
+	    Err(err) => return Err(err),
+	    Ok(custody) => custody,
+	};
+	let fs_index = custody.borrow().as_ref().inode().filesystem_index();
+	return match self.filesystems.get_mut(fs_index) {
+	    None => Err(FileSystemErr::Unknown),
+	    Some(fs) => fs.make_inode(custody, path.to_string(), mode),
 	}
     }
 }

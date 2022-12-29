@@ -1,6 +1,6 @@
 use alloc::string::String;
 use core::str::CharIndices;
-use core::iter::{IntoIterator, Peekable};
+use core::iter::Peekable;
 
 pub struct Path<'a> {
     path: String,
@@ -17,6 +17,14 @@ impl<'a> Path<'a> {
 
     pub fn components(&self) -> PathIter {
 	PathIter::new(self.path.as_ref())
+    }
+
+    pub fn get_raw(&self) -> &str {
+	self.path.as_str()
+    }
+
+    pub fn to_string(self) -> String {
+	self.path
     }
 }
 

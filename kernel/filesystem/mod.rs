@@ -7,17 +7,25 @@ mod path;
 mod vfs;
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::string::String;
-use in_memory_fs::InMemoryFileSystem;
-use inode::{Inode, InodeIdentifier, FileSystemIndex};
-use vfs::VirtualFileSystem;
+use core::cell::RefCell;
+
+use self::custody::Custody;
+use self::error::FileSystemErr;
+use self::file::{FileDescriptor, OpenFileDescription};
+use self::in_memory_fs::InMemoryFileSystem;
+use self::inode::{Inode, InodeIdentifier, FileSystemIndex};
+use self::vfs::VirtualFileSystem;
 
 pub struct File;
 
 pub trait FileSystem {
     fn root_inode_id(&self) -> InodeIdentifier;
-    fn inode(&self, inode_id: InodeIdentifier) -> Option<&Box<dyn Inode>>;
+    fn inode(&self, inode_id: InodeIdentifier) -> Option<Rc<Box<dyn Inode>>>;
     fn set_fs_index(&mut self, fs_index: FileSystemIndex);
+    fn write(&mut self, fd: FileDescriptor, bytes: &[u8], open_file_description: &OpenFileDescription) -> Result<(), FileSystemErr>;
+    fn make_inode(&mut self, custody: RefCell<Box<Custody>>, path: String, mode: u32) -> Result<(), FileSystemErr>;
 }
 
 pub fn init() {
