@@ -11,6 +11,13 @@ use super::FileSystem;
 use super::path::Path;
 use super::inode::{InodeIdentifier, FileSystemIndex, Inode};
 use super::file::{FileDescriptor, OpenFileDescription};
+use kernel_api::headers::fcntl::{
+    O_APPEND,
+    O_CREAT,
+    O_RDONLY,
+    O_RDWR,
+    O_WRONLY,
+};
 
 pub struct VirtualFileSystem {
     root_inode: InodeIdentifier,
@@ -45,7 +52,6 @@ impl VirtualFileSystem {
 
     /// [write() spec link](https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html)
     pub fn write(&mut self, fd: FileDescriptor, bytes: &[u8]) -> Result<(), FileSystemErr> {
-	use kernel_api::headers::fcntl::{O_APPEND, O_RDONLY, O_RDWR, O_WRONLY};
 	let open_file_description = match self.open_fd.get_mut(&fd) {
 	    None => return Err(FileSystemErr::EBadF),
 	    Some(metadata) => metadata,
@@ -78,9 +84,14 @@ impl VirtualFileSystem {
 	}
     }
 
-    pub fn open(&mut self, path: String) -> Result<FileDescriptor, FileSystemErr> {
+    pub fn open(&mut self, path: String, options: u32) -> Result<FileDescriptor, FileSystemErr> {
 	let custody = self.resolve_path(path)?;
 
+	// Check if we need to create the file.
+	if options & O_CREAT != 0 {
+	    self.create(path, options)?;
+	}
+	
 	// Need to store inode id in tmp variable for compiler to figure out
 	// that it can copy the resulting inode id and not care that
 	// the custody gets dropped right after we return.
@@ -145,33 +156,17 @@ impl VirtualFileSystem {
 	Ok(parent)
     }
 
+    fn create(&mut self, path: &str, options: u32) -> Result<(), FileSystemErr> {
+	assert!(options & O_CREAT != 0);
+	Ok(())
+    }
+
     fn fetch_inode(&self, inode_id: InodeIdentifier) -> Option<Rc<Box<dyn Inode>>> {
 	match self.filesystems.get(inode_id.filesystem_index() as usize) {
 	    None => None,
 	    Some(filesystem) => {
 		filesystem.inode(inode_id)
 	    }
-	}
-    }
-
-    /// Create an inode in the given filesystem. Currently assumes only the last path component
-    /// needs to be created (which might be a mistake).
-    pub fn make_inode(&mut self, path: String, mode: u32) -> Result<(), FileSystemErr> {
-	let path_len = path.len().clone();
-	let path = Path::new(path);
-
-	let len = match path.components().last() {
-	    None => 0,
-	    Some(segment) => path_len - segment.len(),
-	};
-	let custody = match self.resolve_path(path.get_raw()[0..len].to_string()) {
-	    Err(err) => return Err(err),
-	    Ok(custody) => custody,
-	};
-	let fs_index = custody.borrow().as_ref().inode().filesystem_index();
-	return match self.filesystems.get_mut(fs_index) {
-	    None => Err(FileSystemErr::Unknown),
-	    Some(fs) => fs.make_inode(custody, path.to_string(), mode),
 	}
     }
 }
