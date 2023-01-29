@@ -1,4 +1,6 @@
 // Constants
+use crate::error::KError;
+
 pub const O_RDONLY: u32 = 1 << 0;
 pub const O_WRONLY: u32 = 1 << 1;
 pub const O_RDWR: u32 = O_RDONLY | O_WRONLY;
@@ -15,3 +17,8 @@ pub const O_NOFOLLOW: u32 = 1 << 10;
 pub const O_CLOEXEC: u32 = 1 << 11;
 pub const O_DIRECT: u32 = 1 << 12;
 pub const O_SYNC: u32 = 1 << 13;
+
+pub fn open(_path: *const u8, _flags: isize, _mode: Option<usize>) -> Result<usize, KError> {
+    
+    Ok(0)
+}

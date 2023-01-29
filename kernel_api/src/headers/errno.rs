@@ -1,3 +1,5 @@
+#[repr(C)]
+#[derive(Debug)]
 pub enum ErrnoCode {
     ESUCCESS,
     EPERM,
