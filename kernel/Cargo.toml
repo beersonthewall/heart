@@ -11,5 +11,5 @@ crate-type = ["staticlib"]
 kernel_api = { path = "../kernel_api" }
 bit_field = "0.10.1"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
+spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex", "rwlock"] }
 pic8259 = "0.10.2"
