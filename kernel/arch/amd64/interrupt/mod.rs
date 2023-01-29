@@ -3,8 +3,6 @@ mod apic;
 mod handlers;
 mod idt;
 
-use crate::arch::memory::page_mapper::PageMapper;
-use crate::memory::addr::VirtualAddress;
 use core::arch::asm;
 use handlers::{
     alignment_check_handler, bound_range_handler, breakpoint_handler, control_protection_handler,
@@ -15,7 +13,7 @@ use handlers::{
     spurious_handler, stack_handler, timer_handler, vmm_communication_handler,
     x87_floating_point_handler,
 };
-use idt::{InterruptDescriptorTable, InterruptHandlerFn};
+use idt::InterruptDescriptorTable;
 use pic8259::ChainedPics;
 use spin::mutex::Mutex;
 
@@ -68,7 +66,4 @@ pub fn init() {
         PICS.lock().initialize();
         asm!("sti");
     }
-
-    // Page Fault time :)
-    //    unsafe { *(0xdeadbeaf as *mut u64) = 42 };
 }

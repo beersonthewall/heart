@@ -1,5 +1,4 @@
 #![feature(allocator_api)]
-#![feature(asm_sym)]
 #![feature(asm_const)]
 #![feature(default_alloc_error_handler)]
 #![feature(naked_functions)]
@@ -24,12 +23,10 @@ extern crate kernel_api;
 pub mod arch;
 pub mod unwind;
 
-mod device;
 mod filesystem;
 mod logging;
 mod memory;
 mod multiboot;
-mod storage;
 //mod intrusive_list;
 
 use self::arch::memory::PAGE_SIZE;
@@ -50,7 +47,6 @@ pub extern "C" fn kmain(multiboot_ptr: usize) {
     let bootstrap_frame_alloc_start = kend_phys_addr + PAGE_SIZE - (kend_phys_addr % PAGE_SIZE);
     log!("kendvaddr: {:x}", kend_vaddr);
     memory::init(multiboot_ptr, bootstrap_frame_alloc_start, kend_vaddr);
-    device::init();
     filesystem::init();
     arch::interrupt::init();
 }

@@ -1,7 +1,3 @@
-use crate::arch::memory::map_frame;
-use crate::memory::addr::{PhysicalAddress, VirtualAddress};
-use crate::memory::frame::Frame;
-use crate::memory::page::Page;
 use bit_field::BitField;
 use core::arch::asm;
 
