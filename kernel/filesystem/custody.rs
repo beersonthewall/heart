@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use spin::rwlock::RwLock;
 
 use super::inode::InodeTraitObject;
-
+use super::error::FileSystemError;
 /// A Custody maps a human readable name to the more computer friendly
 /// Inodes. Similar to linux dentry (the name of this struct is borrowed from
 /// Serenity OS).
@@ -27,5 +27,18 @@ impl Custody {
 	    inode,
 	    children: Vec::new(),
 	}
+    }
+
+    pub fn name(&self) -> &str {
+	&self.name
+    }
+
+    pub fn lookup(&self, name: &str) -> Result<Option<Arc<RwLock<Custody>>>, FileSystemError> {
+	for c in &self.children {
+	    if name == c.read().name() {
+		return Ok(Some(c.clone()));
+	    }
+	}
+	Ok(None)
     }
 }
