@@ -79,52 +79,25 @@ impl VirtualFileSystem {
 	    }
 	});
 
-	// FIXME: This is a gnarly closure, but we don't want to break it out because we couldn't capture
-	// the 'path' value. Rust explicitly delineates between closures and functions, which can avoid some
-	// nasty problems (see https://users.rust-lang.org/t/inner-functions-not-closed-over-their-environment/7696/9)
-	//
-	// For clairty the type signature of this closure would be:
-	// fn step(acc: Result<(Arc<RwLock<Custody>>, usize, usize), FileSystemError>, slash_index: &usize)
-	//	-> Result<(Arc<RwLock<Custody>>, usize, usize), FileSystemError>;
-	//
-	// Lastly I did this via fold because it avoids liftime issues if we tried to do this with a for loop e.g.
-	//
-	// let mut custody = base;
-	// for blah in blah {
-	//   <snip>
-	//   // here be issues with the borrow checker, or maybe I'm just a dummy and can't figure this out.
-	//   custody = custody.lookup(name);
-	// }
-	//
-	// FIXME: also this is forced to complete the whole iteration even if the first lookup() fails.
-	// figuring out a way to get try_fold to work might allow short-circuting the evaltuation.
-	let result = slash_indices.iter().fold(Ok((base, 0, 0)), |acc, slash_index| {
-	    let acc = match acc {
-		Ok(a) => a,
-		Err(_) => return acc,
-	    };
-
-	    let custody = acc.0;
-	    let count = acc.1;
-	    let prev_slash_index = acc.2;
-	    let slash_index = *slash_index;
-
-	    if slash_index - prev_slash_index == 1 {
-		return Ok((custody, count + 1, slash_index));
+	let mut current_custody = base;
+	let mut name_start = 0;
+	for index in slash_indices {
+	    if index == name_start && index == 0 {
+		continue;
 	    }
 
-	    let name = &path[prev_slash_index + 1..slash_index];
-	    let custody = match custody.read().lookup(name)? {
-		Some(c) => c,
+	    if index - name_start == 1 {
+		name_start = index;
+		continue;
+	    }
+
+	    let child = match current_custody.read().lookup(&path[name_start..index])? {
 		None => return Err(FileSystemError::FileNotFound),
+		Some(custody) => custody,
 	    };
-	    
-	    Ok((custody, count + 1, slash_index))
-	});
-	match result {
-	    Ok((custody, _, _)) => Ok(custody),
-	    Err(e) => Err(e),
+	    current_custody = child;
 	}
+	Ok(current_custody)
     }
 
 }
