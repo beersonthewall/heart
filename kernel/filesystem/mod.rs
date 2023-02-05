@@ -3,6 +3,7 @@ mod error;
 mod file;
 mod inode;
 mod mem_fs;
+mod path;
 mod vfs;
 
 use alloc::sync::Arc;

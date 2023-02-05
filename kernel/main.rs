@@ -1,9 +1,9 @@
 #![feature(allocator_api)]
 #![feature(asm_const)]
-#![feature(default_alloc_error_handler)]
 #![feature(naked_functions)]
 #![feature(panic_info_message)]
 #![feature(ptr_to_from_bits)]
+#![feature(round_char_boundary)]
 #![no_std]
 #![crate_name = "kernel"]
 
