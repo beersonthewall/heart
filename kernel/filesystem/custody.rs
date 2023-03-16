@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::rwlock::RwLock;
 
+use super::file::FileDescriptor;
 use super::inode::InodeTraitObject;
 use super::error::FileSystemError;
 /// A Custody maps a human readable name to the more computer friendly
@@ -27,6 +28,12 @@ impl Custody {
 	    inode,
 	    children: Vec::new(),
 	}
+    }
+
+    /// Adds a child to the inode associated with this Custody.
+    pub fn add_child(&self, name: &str, mode: usize) -> Result<FileDescriptor, FileSystemError> {
+	
+	Ok(FileDescriptor(1))
     }
 
     pub fn name(&self) -> &str {

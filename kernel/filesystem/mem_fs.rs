@@ -6,6 +6,7 @@ use super::{
     FileSystem,
     error::FileSystemError,
 };
+use super::file::FileDescriptor;
 use super::inode::{InodeTraitObject, Inode, InodeMetadata, InodeIdentifier};
 
 /// Inode implementation for the in memory file system
@@ -40,6 +41,10 @@ impl Inode for MemFile {
 
     fn id(&self) -> InodeIdentifier {
 	self.id
+    }
+
+    fn add_child(&self, mode: usize) -> Result<FileDescriptor, FileSystemError> {
+	Ok(FileDescriptor(1))
     }
 }
 

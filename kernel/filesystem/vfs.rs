@@ -2,11 +2,15 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use kernel_api::headers::fcntl::{
+    O_CREAT,
+};
 use spin::rwlock::RwLock;
 
+use super::{FileSystem, FileSystemError};
 use super::custody::Custody;
 use super::mem_fs::MemFs;
-use super::{FileSystem, FileSystemError};
+use super::path::Path;
 use super::file::{
     File, FileDescriptor
 };
@@ -63,7 +67,26 @@ impl VirtualFileSystem {
     /// Opens a file.
     /// Spec link: https://pubs.opengroup.org/onlinepubs/9699919799/
     pub fn open(&self, path: &str, flags: isize, mode: Option<usize>) -> Result<FileDescriptor, FileSystemError> {
-	let custody = self.resolve_path(path, self.root_inode.clone().unwrap())?;
+	// TODO: likely checked at the LIBC layer in the future? but doesn't hurt to check here.
+	if path.len() == 0 {
+	    return Err(FileSystemError::EFAULT);
+	}
+
+	let o_creat = flags & (O_CREAT as isize) > 0;
+	let mut new_fd: Option<FileDescriptor> = None;
+	if o_creat {
+	    let lookup_path = Path::new(path).all_but_last();
+	    let custody = self.resolve_path(lookup_path, self.root_inode.clone().unwrap())?;
+	    let name_to_create = Path::new(path).last();
+	    // Pick a default mode, not sure this is correct :/
+	    let mode = if let Some(m) = mode { m } else { 0x0644 };
+	    new_fd = Some(custody.add_child(name_to_create, mode)?);
+	}
+
+	
+
+	let root_inode = self.root_inode.clone().unwrap();
+	let custody = self.resolve_path(path, root_inode)?;
 	Ok(FileDescriptor(1))
     }
 

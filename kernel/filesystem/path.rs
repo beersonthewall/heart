@@ -1,5 +1,7 @@
 /// Path iteration and convinience methods.
-struct Path<'a> {
+use alloc::vec::Vec;
+
+pub struct Path<'a> {
     path: &'a str,
     byte_pos: usize,
 }
@@ -17,6 +19,17 @@ impl<'a> Path<'a> {
     pub fn is_absolute(&self) -> bool {
 	let first_slash = self.path.find('/');
 	(first_slash.is_some() && first_slash.unwrap() == 0) || false
+    }
+
+    /// Returns a slice for all but the last path component.
+    /// consumes self, because it mutates the iterator (i think).
+    pub fn all_but_last(self) -> &'a str {
+	// There has to be a better way
+	let len = self.path.len();
+	let path = self.path;
+	let parts = self.collect::<Vec<&str>>();
+	let last_part_len = parts[parts.len() - 1].len();
+	&path[0..(len - last_part_len - 1)]
     }
 }
 
